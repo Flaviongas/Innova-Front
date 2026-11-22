@@ -35,6 +35,28 @@ Without `NEXT_PUBLIC_API_URL` it defaults to `http://127.0.0.1:8000`.
 Without the tile key, CARTO serves an "API key required" watermark and the
 map looks empty.
 
+## Troubleshooting connectivity
+
+The login and the panel show the exact cause when the backend is
+unreachable. Work through this list:
+
+1. **Is the backend running?** In a terminal:
+   ```bash
+   curl http://127.0.0.1:8000/api/health
+   ```
+   It must answer `{"status":"ok"}`. If not, start the backend first.
+2. **Did the frontend load the URL?** `NEXT_PUBLIC_*` variables are baked
+   in at build/dev-server start. After creating or editing `.env.local`,
+   restart `npm run dev` (or rebuild for `npm start`).
+3. **Testing from a phone?** `127.0.0.1` on the phone means the phone
+   itself, not your PC. Point the variable at your PC's LAN address
+   instead, e.g. `NEXT_PUBLIC_API_URL="http://192.168.1.6:8000"`, make
+   sure the backend listens on all interfaces, and restart the dev
+   server. The phone and the PC must share the same Wi-Fi.
+4. **CORS message?** The browser reached the backend but was refused.
+   The backend must allow the frontend origin (e.g.
+   `http://localhost:3000`, or the LAN URL when testing from mobile).
+
 Production build:
 
 ```bash

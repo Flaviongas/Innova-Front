@@ -40,6 +40,40 @@ export function clearToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+/**
+ * A failed `fetch` hides two different problems (server down vs. server
+ * refusing the browser via CORS). A `no-cors` probe needs no headers, so it
+ * gets an opaque-but-successful response whenever the server is reachable
+ * at all — letting the UI name the real problem.
+ */
+async function probeBackendReachable(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    await fetch(`${API_URL}/api/health`, {
+      mode: "no-cors",
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function connectionErrorMessage(): Promise<string> {
+  if (typeof window !== "undefined" && (await probeBackendReachable())) {
+    return (
+      `El servidor responde, pero el navegador bloquea la conexión (CORS). ` +
+      `Configura el backend para aceptar el origen ${window.location.origin}.`
+    );
+  }
+  return (
+    `No se pudo conectar con el servidor (${API_URL}). ` +
+    `Revisa que el backend esté en ejecución.`
+  );
+}
+
 type RequestOptions = {
   method?: string;
   body?: unknown;
@@ -67,10 +101,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   } catch {
-    throw new ApiError(
-      0,
-      `No se pudo conectar con el servidor (${API_URL}). Revisa que el backend esté en ejecución y acepte este origen.`,
-    );
+    throw new ApiError(0, await connectionErrorMessage());
   }
 
   if (response.status === 204) {
