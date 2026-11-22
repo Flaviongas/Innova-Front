@@ -18,28 +18,6 @@ export type Macrosector = {
   aidMix: AidSlice[];
 };
 
-export type CaseStatusTone = "warning" | "info" | "success" | "danger";
-
-export type RecentCase = {
-  id: string;
-  person: string;
-  aidType: string;
-  status: string;
-  tone: CaseStatusTone;
-  sectorId: string;
-  time: string;
-  urgency?: "Normal" | "Urgente";
-};
-
-export type OperationalAlert = {
-  id: string;
-  title: string;
-  detail: string;
-  count: number;
-  tone: "warning" | "danger" | "info";
-  icon: "regularization" | "stock" | "documents";
-};
-
 const AID_MIX: AidSlice[] = [
   { label: "Bienes de bodega", value: 42, color: "#4B9279" },
   { label: "Ayuda monetaria", value: 31, color: "#2876B8" },
@@ -188,86 +166,6 @@ export const MACROSECTORS: Macrosector[] = [
   },
 ];
 
-export const RECENT_CASES: RecentCase[] = [
-  {
-    id: "AY-2026-000482",
-    person: "Camila R.",
-    aidType: "Bienes de bodega",
-    status: "Pendiente de regularización",
-    tone: "warning",
-    sectorId: "centro",
-    time: "Hace 18 min",
-    urgency: "Urgente",
-  },
-  {
-    id: "AY-2026-000479",
-    person: "Familia Muñoz",
-    aidType: "Materiales de construcción",
-    status: "En evaluación",
-    tone: "info",
-    sectorId: "labranza",
-    time: "Hace 42 min",
-    urgency: "Normal",
-  },
-  {
-    id: "AY-2026-000471",
-    person: "Jorge L.",
-    aidType: "Ayuda monetaria",
-    status: "Documento observado",
-    tone: "warning",
-    sectorId: "el-carmen",
-    time: "Hace 1 h 12 min",
-    urgency: "Urgente",
-  },
-  {
-    id: "AY-2026-000468",
-    person: "Rosa M.",
-    aidType: "Bienes de bodega",
-    status: "Entregada",
-    tone: "success",
-    sectorId: "amanecer",
-    time: "Hace 2 h",
-    urgency: "Normal",
-  },
-  {
-    id: "AY-2026-000455",
-    person: "Familia Sepúlveda",
-    aidType: "Materiales de construcción",
-    status: "Pendiente de regularización",
-    tone: "warning",
-    sectorId: "centro",
-    time: "Ayer",
-    urgency: "Normal",
-  },
-];
-
-export const OPERATIONAL_ALERTS: OperationalAlert[] = [
-  {
-    id: "regularization",
-    title: "Entregas pendientes de regularización",
-    detail: "Revisar actas y decretos",
-    count: 7,
-    tone: "warning",
-    icon: "regularization",
-  },
-  {
-    id: "stock",
-    title: "Artículos bajo mínimo en bodega",
-    detail: "Solicitar reposición",
-    count: 4,
-    tone: "danger",
-    icon: "stock",
-  },
-  {
-    id: "documents",
-    title: "Documentos observados",
-    detail: "Revisar firmas y visaciones",
-    count: 2,
-    tone: "info",
-    icon: "documents",
-  },
-];
-
 export function getMacrosector(id: string): Macrosector {
   return (
     MACROSECTORS.find((sector) => sector.id === id) ??
@@ -277,9 +175,9 @@ export function getMacrosector(id: string): Macrosector {
 }
 
 export function territoryFill(cases: number): string {
-  if (cases >= 12) return "#B9D9C7";
-  if (cases >= 9) return "#C9E0D2";
-  if (cases >= 6) return "#D8E9DE";
-  if (cases >= 3) return "#E5F0E9";
-  return "#EEF4F0";
+  if (cases >= 12) return "#125742";
+  if (cases >= 9) return "#3C8267";
+  if (cases >= 6) return "#6FA98F";
+  if (cases >= 3) return "#A9CDBB";
+  return "#DCEBE3";
 }

@@ -96,6 +96,8 @@ type InteractiveTerritoryMapProps = {
   mapMode: "map" | "satellite";
   onMapReady?: (map: L.Map) => void;
   scrollWheelZoom?: boolean;
+  /** Real per-sector case counts; falls back to reference data when absent. */
+  counts?: Record<string, number>;
 };
 
 function featureName(feature: GeoJSON.Feature): string | undefined {
@@ -104,20 +106,60 @@ function featureName(feature: GeoJSON.Feature): string | undefined {
   return typeof raw === "string" ? raw : undefined;
 }
 
+/** Read a CSS token at runtime so Leaflet canvas colors stay in sync. */
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const value = window
+    .getComputedStyle(window.document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return value || fallback;
+}
+
 function polygonStyle(
   name: string | undefined,
   selected: boolean,
+  counts?: Record<string, number>,
 ): L.PathOptions {
   const id = name ? OFFICIAL_TO_ID[name] : undefined;
-  const cases = id ? getMacrosector(id).cases : 0;
+  const cases = id ? (counts?.[id] ?? getMacrosector(id).cases) : 0;
 
   return {
-    color: "#125742",
+    color: cssVar("--color-primary", "#125742"),
     weight: selected ? 2.5 : 1.2,
     opacity: selected ? 0.9 : 0.45,
     fillColor: territoryFill(cases),
     fillOpacity: selected ? 0.6 : 0.42,
   };
+}
+
+function tooltipFor(id: string, counts?: Record<string, number>): string {
+  const sector = getMacrosector(id);
+  const cases = counts?.[id] ?? sector.cases;
+  return `<strong>${sector.label}</strong><br/>${cases} casos activos`;
+}
+
+function restyleLayer(
+  layer: L.GeoJSON,
+  selectedId: string,
+  counts?: Record<string, number>,
+): void {
+  layer.eachLayer((sublayer) => {
+    const feature = (sublayer as L.GeoJSON).feature as
+      | GeoJSON.Feature
+      | undefined;
+    const name = feature ? featureName(feature) : undefined;
+    const sid = name ? OFFICIAL_TO_ID[name] : undefined;
+    (sublayer as L.Path).setStyle(
+      polygonStyle(name, !!sid && sid === selectedId, counts),
+    );
+    if (sid) {
+      sublayer.bindTooltip(tooltipFor(sid, counts), {
+        sticky: true,
+        opacity: 1,
+      });
+    }
+  });
 }
 
 export function InteractiveTerritoryMap({
@@ -126,6 +168,7 @@ export function InteractiveTerritoryMap({
   mapMode,
   onMapReady,
   scrollWheelZoom = true,
+  counts,
 }: InteractiveTerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof L | null>(null);
@@ -138,6 +181,7 @@ export function InteractiveTerritoryMap({
   const selectedRef = useRef(selectedId);
   const modeRef = useRef(mapMode);
   const scrollRef = useRef(scrollWheelZoom);
+  const countsRef = useRef(counts);
   const [status, setStatus] = useState("iniciando");
 
   onSelectRef.current = onSelect;
@@ -145,6 +189,7 @@ export function InteractiveTerritoryMap({
   selectedRef.current = selectedId;
   modeRef.current = mapMode;
   scrollRef.current = scrollWheelZoom;
+  countsRef.current = counts;
 
   // Create the map once, loading Leaflet only in the browser.
   useEffect(() => {
@@ -189,13 +234,13 @@ export function InteractiveTerritoryMap({
                 polygonStyle(
                   feature ? featureName(feature) : undefined,
                   false,
+                  countsRef.current,
                 ),
               onEachFeature: (feature, sublayer) => {
                 const name = featureName(feature);
                 const id = name ? OFFICIAL_TO_ID[name] : undefined;
                 if (!id) return;
 
-                const sector = getMacrosector(id);
                 centroidsRef.current.set(
                   id,
                   polygonCenter(
@@ -203,10 +248,10 @@ export function InteractiveTerritoryMap({
                       .coordinates,
                   ),
                 );
-                sublayer.bindTooltip(
-                  `<strong>${sector.label}</strong><br/>${sector.cases} casos activos`,
-                  { sticky: true, opacity: 1 },
-                );
+                sublayer.bindTooltip(tooltipFor(id, countsRef.current), {
+                  sticky: true,
+                  opacity: 1,
+                });
                 sublayer.on("click", () => onSelectRef.current(id));
               },
             },
@@ -233,15 +278,7 @@ export function InteractiveTerritoryMap({
     function applySelection(id: string) {
       const layer = geoLayerRef.current;
       if (!layer) return;
-      layer.eachLayer((sublayer) => {
-        const feature = (sublayer as L.GeoJSON).feature as
-          | GeoJSON.Feature
-          | undefined;
-        const name = feature ? featureName(feature) : undefined;
-        (sublayer as L.Path).setStyle(
-          polygonStyle(name, !!name && OFFICIAL_TO_ID[name] === id),
-        );
-      });
+      restyleLayer(layer, id, countsRef.current);
     }
 
     init();
@@ -281,15 +318,7 @@ export function InteractiveTerritoryMap({
     const layer = geoLayerRef.current;
     if (!map || !layer) return;
 
-    layer.eachLayer((sublayer) => {
-      const feature = (sublayer as L.GeoJSON).feature as
-        | GeoJSON.Feature
-        | undefined;
-      const name = feature ? featureName(feature) : undefined;
-      (sublayer as L.Path).setStyle(
-        polygonStyle(name, !!name && OFFICIAL_TO_ID[name] === selectedId),
-      );
-    });
+    restyleLayer(layer, selectedId, countsRef.current);
 
     const coords = centroidsRef.current.get(selectedId);
     if (coords) {
@@ -300,6 +329,13 @@ export function InteractiveTerritoryMap({
       });
     }
   }, [selectedId]);
+
+  // Refresh fills and tooltips when real counts arrive or change.
+  useEffect(() => {
+    const layer = geoLayerRef.current;
+    if (!layer) return;
+    restyleLayer(layer, selectedRef.current, counts);
+  }, [counts]);
 
   return (
     <div className="interactive-map-wrap">

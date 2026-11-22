@@ -2,8 +2,6 @@
 
 import {
   AlertTriangle,
-  ArrowDown,
-  ArrowUp,
   Bell,
   CheckCircle2,
   ChevronDown,
@@ -12,8 +10,6 @@ import {
   ChevronUp,
   ClipboardList,
   Crosshair,
-  Download,
-  FileText,
   Landmark,
   Layers,
   LogOut,
@@ -23,34 +19,67 @@ import {
   Package,
   Plus,
   Search,
-  Settings,
-  Truck,
   UserRound,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type L from "leaflet";
 import { InteractiveTerritoryMap } from "@/components/interactive-territory-map";
+import { MACROSECTORS, getMacrosector, type AidSlice } from "@/lib/data";
 import {
-  MACROSECTORS,
-  OPERATIONAL_ALERTS,
-  RECENT_CASES,
-  getMacrosector,
-  type AidSlice,
-  type CaseStatusTone,
-  type RecentCase,
-} from "@/lib/data";
+  ApiError,
+  api,
+  categoryLabel,
+  clearToken,
+  formatDateTime,
+  getToken,
+  helpLabel,
+  stateLabel,
+  stateTone,
+  type CreateEmergencyInput,
+  type DeliveryLineInput,
+  type Emergency,
+  type EmergencyCategory,
+  type EmergencyHelpType,
+  type EmergencyState,
+  type StockItem,
+  type User,
+} from "@/lib/api";
 
 const NAV_ITEMS = ["Panel", "Casos", "Ayudas", "Bodega", "Documentos", "Territorio", "Reportes"];
 
-const QUICK_ACTIONS = [
-  { label: "Registrar entrega", icon: Truck, message: "Registro de entrega en preparación." },
-  { label: "Revisar bodega", icon: Package, message: "Vista de bodega en preparación." },
-  { label: "Documentos", icon: FileText, message: "Bandeja documental en preparación." },
-  { label: "Exportar reporte", icon: Download, message: "Exportación anonimizada en preparación." },
+const CATEGORY_OPTIONS: EmergencyCategory[] = [
+  "incendio",
+  "terremoto",
+  "inundacion",
+  "temporal",
+  "otro",
 ];
 
-function StatusBadge({ tone, children }: { tone: CaseStatusTone; children: ReactNode }) {
+const HELP_OPTIONS: EmergencyHelpType[] = [
+  "alimentos",
+  "higiene",
+  "abrigo",
+  "dinero",
+  "materiales",
+  "otro",
+];
+
+const STOCK_CATEGORIES = ["alimentos", "higiene", "abrigo", "materiales", "otro"] as const;
+
+const STATE_OPTIONS: EmergencyState[] = ["recibida", "en_proceso", "entregada"];
+
+const HELP_COLORS: Record<string, string> = {
+  alimentos: "#4B9279",
+  dinero: "#2876B8",
+  materiales: "#9A6A3A",
+  higiene: "#7652A6",
+  abrigo: "#A3BBAE",
+  otro: "#929D96",
+};
+
+function StatusBadge({ tone, children }: { tone: string; children: ReactNode }) {
   return <span className={`status status--${tone}`}>{children}</span>;
 }
 
@@ -143,25 +172,25 @@ function EmptyCases({ query, onClear }: { query: string; onClear: () => void }) 
   );
 }
 
-function AlertGlyph({ icon }: { icon: string }) {
+function AlertGlyph({ icon }: { icon: "stock" | "attention" }) {
   if (icon === "stock") return <Package size={13} />;
-  if (icon === "documents") return <FileText size={13} />;
   return <ClipboardList size={13} />;
 }
 
-type CaseCoords = { lat: number; lng: number; accuracy: number };
-
-type NewCasePayload = {
-  person: string;
-  sectorId: string;
-  urgency: "Normal" | "Urgente";
-  coords?: CaseCoords;
+export type OperationalAlert = {
+  id: string;
+  title: string;
+  detail: string;
+  count: number;
+  tone: string;
+  icon: "stock" | "attention";
 };
 
+type CaseCoords = { lat: number; lng: number; accuracy: number };
+
 type NewCaseModalProps = {
-  sectorId: string;
   onClose: () => void;
-  onCreate: (payload: NewCasePayload) => void;
+  onCreate: (payload: CreateEmergencyInput) => Promise<void>;
 };
 
 type GpsState =
@@ -183,8 +212,11 @@ function gpsErrorMessage(error: GeolocationPositionError): string {
   }
 }
 
-function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
+function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
   const [gps, setGps] = useState<GpsState>({ status: "idle" });
+  const [located, setLocated] = useState<string | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   function requestGps() {
     if (!("geolocation" in navigator)) {
@@ -196,39 +228,85 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
     }
 
     setGps({ status: "locating" });
+    setLocated(undefined);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
         setGps({
           status: "ready",
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
+          lat,
+          lng,
           accuracy: position.coords.accuracy,
         });
+        try {
+          const result = await api.locateMacrosector(lat, lng);
+          setLocated(result.macrosector ? result.macrosector.id : null);
+        } catch {
+          setLocated(undefined);
+        }
       },
       (error) => setGps({ status: "error", message: gpsErrorMessage(error) }),
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
     );
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const person = String(data.get("person") ?? "").trim();
-    const sector = String(data.get("sector") ?? sectorId);
-    const urgency = String(data.get("urgency") ?? "Normal") === "Urgente" ? "Urgente" : "Normal";
-
-    if (!person) return;
-
-    onCreate({
-      person,
-      sectorId: sector,
-      urgency,
-      coords:
-        gps.status === "ready"
-          ? { lat: gps.lat, lng: gps.lng, accuracy: gps.accuracy }
-          : undefined,
-    });
+  function clearGps() {
+    setGps({ status: "idle" });
+    setLocated(undefined);
   }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+
+    const data = new FormData(event.currentTarget);
+    const title = String(data.get("title") ?? "").trim();
+    const address = String(data.get("address") ?? "").trim();
+    const category = String(data.get("category") ?? "otro") as EmergencyCategory;
+    const helpType = String(data.get("help_type") ?? "otro") as EmergencyHelpType;
+    const state = String(data.get("state") ?? "recibida") as Emergency["state"];
+
+    if (title.length < 3) {
+      setSubmitError("El título debe tener al menos 3 caracteres.");
+      return;
+    }
+    if (address.length < 3) {
+      setSubmitError("La dirección debe tener al menos 3 caracteres.");
+      return;
+    }
+    if (gps.status !== "ready") {
+      setSubmitError("Captura la ubicación GPS: las coordenadas son obligatorias.");
+      return;
+    }
+
+    setBusy(true);
+    setSubmitError(null);
+    try {
+      await onCreate({
+        category,
+        help_type: helpType,
+        title,
+        address,
+        latitude: gps.lat,
+        longitude: gps.lng,
+        state,
+      });
+    } catch (err) {
+      setSubmitError(
+        err instanceof ApiError ? err.message : "No se pudo crear el caso.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const locatedLabel =
+    located === undefined
+      ? null
+      : located === null
+        ? "Fuera de macrosectores (se registrará sin sector)"
+        : `Macrosector: ${getMacrosector(located).label} (automático)`;
 
   return (
     <div
@@ -248,7 +326,7 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
           <div>
             <span className="eyebrow">Ingreso de caso</span>
             <h2 id="new-case-title">Nuevo caso</h2>
-            <p>Registra el antecedente inicial. La evaluación y la ayuda se definen después.</p>
+            <p>Un registro cubre un evento y un tipo de ayuda, sin datos personales.</p>
           </div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar">
             <X size={16} />
@@ -257,75 +335,45 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
 
         <form className="case-form" onSubmit={handleSubmit}>
           <div className="form-grid">
-            <label className="field">
-              <span>RUT</span>
+            <label className="field field--full">
+              <span>Título del evento</span>
               <input
-                name="rut"
-                placeholder="12.345.678-9"
-                inputMode="text"
+                name="title"
+                placeholder="Ej. Incendio calle Prat"
+                required
                 autoComplete="off"
                 autoFocus
               />
             </label>
 
             <label className="field">
-              <span>Nombre o familia</span>
-              <input
-                name="person"
-                placeholder="Ej. Familia Muñoz"
-                required
-                autoComplete="off"
-              />
-            </label>
-
-            <label className="field">
-              <span>Origen</span>
-              <select name="origin" defaultValue="Demanda espontánea">
-                <option value="Demanda espontánea">Demanda espontánea</option>
-                <option value="Bomberos">Bomberos</option>
-                <option value="Dirección de Riesgos y Desastres">
-                  Dirección de Riesgos y Desastres
-                </option>
-                <option value="SENAPRED">SENAPRED</option>
-                <option value="Otra institución">Otra institución</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Canal</span>
-              <select name="channel" defaultValue="Presencial">
-                <option value="Presencial">Presencial</option>
-                <option value="Teléfono">Teléfono</option>
-                <option value="Correo electrónico">Correo electrónico</option>
-                <option value="WhatsApp">WhatsApp</option>
-                <option value="Otro">Otro</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Territorio</span>
-              <select name="sector" defaultValue={sectorId}>
-                {MACROSECTORS.map((sector) => (
-                  <option key={sector.id} value={sector.id}>
-                    {sector.label}
+              <span>Tipo de evento</span>
+              <select name="category" defaultValue="incendio">
+                {CATEGORY_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {categoryLabel(option)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="field">
-              <span>Urgencia</span>
-              <select name="urgency" defaultValue="Normal">
-                <option value="Normal">Normal</option>
-                <option value="Urgente">Urgente</option>
+              <span>Tipo de ayuda</span>
+              <select name="help_type" defaultValue="alimentos">
+                {HELP_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {helpLabel(option)}
+                  </option>
+                ))}
               </select>
             </label>
 
             <label className="field field--full">
-              <span>Dirección de referencia</span>
+              <span>Dirección</span>
               <input
                 name="address"
-                placeholder="Ej. Calle, número, sector o hito cercano"
+                placeholder="Ej. Prat 123, Temuco"
+                required
                 autoComplete="off"
               />
             </label>
@@ -342,7 +390,7 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
                   <button
                     className="gps-clear"
                     type="button"
-                    onClick={() => setGps({ status: "idle" })}
+                    onClick={clearGps}
                     aria-label="Quitar ubicación GPS"
                   >
                     <X size={13} />
@@ -370,25 +418,36 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
               )}
               {gps.status === "idle" && (
                 <span className="gps-hint">
-                  Requiere permiso del navegador. Funciona en HTTPS o localhost.
+                  Obligatoria. Requiere permiso del navegador. Funciona en HTTPS o localhost.
                 </span>
+              )}
+              {locatedLabel && (
+                <span className="gps-located">{locatedLabel}</span>
               )}
             </div>
 
             <label className="field field--full">
-              <span>Notas de ingreso</span>
-              <textarea
-                name="notes"
-                rows={3}
-                placeholder="Motivo, medio de contacto, antecedentes iniciales…"
-              />
+              <span>Estado inicial</span>
+              <select name="state" defaultValue="recibida">
+                <option value="recibida">Recibida</option>
+                <option value="en_proceso">En proceso</option>
+                <option value="entregada">
+                  Entregada (ayuda urgente previa al registro)
+                </option>
+              </select>
             </label>
           </div>
+
+          {submitError && (
+            <p className="form-error" role="alert">
+              {submitError}
+            </p>
+          )}
 
           <div className="form-note">
             <AlertTriangle size={14} />
             <span>
-              El caso se crea como borrador. La evaluación profesional define la ayuda.
+              Se genera un código de seguimiento (por ejemplo TMO-X7K2-Q9P4) para consulta pública.
             </span>
           </div>
 
@@ -396,9 +455,9 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
             <button className="button button--ghost" type="button" onClick={onClose}>
               Cancelar
             </button>
-            <button className="button button--primary" type="submit">
+            <button className="button button--primary" type="submit" disabled={busy}>
               <Plus size={14} />
-              Crear caso
+              {busy ? "Creando…" : "Crear caso"}
             </button>
           </div>
         </form>
@@ -407,9 +466,536 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
   );
 }
 
+type EmergencyDrawerProps = {
+  emergency: Emergency;
+  stockItems: StockItem[];
+  onClose: () => void;
+  onUpdated: (emergency: Emergency) => void;
+  onStockChanged: () => void;
+  notify: (message: string) => void;
+};
+
+function EmergencyDrawer({
+  emergency,
+  stockItems,
+  onClose,
+  onUpdated,
+  onStockChanged,
+  notify,
+}: EmergencyDrawerProps) {
+  const [stateBusy, setStateBusy] = useState(false);
+  const [deliveryItem, setDeliveryItem] = useState("");
+  const [deliveryQty, setDeliveryQty] = useState("1");
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
+  const [deliveryError, setDeliveryError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const sectorLabel = emergency.macrosector
+    ? getMacrosector(emergency.macrosector).label
+    : "Sin sector";
+
+  async function changeState(state: EmergencyState) {
+    if (state === emergency.state || stateBusy) return;
+    setStateBusy(true);
+    try {
+      const updated = await api.patchEmergencyState(emergency.id, state);
+      onUpdated(updated);
+      notify(`Caso ${updated.code} ahora está ${stateLabel(updated.state).toLowerCase()}.`);
+    } catch (err) {
+      notify(
+        err instanceof ApiError ? err.message : "No se pudo cambiar el estado.",
+      );
+    } finally {
+      setStateBusy(false);
+    }
+  }
+
+  async function submitDelivery(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (deliveryBusy) return;
+
+    const itemId = Number(deliveryItem);
+    const quantity = Number(deliveryQty);
+    if (!itemId || !Number.isInteger(quantity) || quantity <= 0) {
+      setDeliveryError("Elige un artículo y una cantidad entera mayor que cero.");
+      return;
+    }
+
+    setDeliveryBusy(true);
+    setDeliveryError(null);
+    try {
+      const updated = await api.addDelivery(emergency.id, [
+        { item_id: itemId, quantity },
+      ]);
+      onUpdated(updated);
+      onStockChanged();
+      setDeliveryItem("");
+      setDeliveryQty("1");
+      notify(`Entrega registrada en ${updated.code}. Stock descontado.`);
+    } catch (err) {
+      setDeliveryError(
+        err instanceof ApiError ? err.message : "No se pudo registrar la entrega.",
+      );
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }
+
+  async function submitEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (editBusy) return;
+
+    const data = new FormData(event.currentTarget);
+    const title = String(data.get("title") ?? "").trim();
+    if (title.length < 3) {
+      setEditError("El título debe tener al menos 3 caracteres.");
+      return;
+    }
+
+    setEditBusy(true);
+    setEditError(null);
+    try {
+      const updated = await api.patchEmergency(emergency.id, {
+        title,
+        category: String(data.get("category") ?? emergency.category) as EmergencyCategory,
+        help_type: String(data.get("help_type") ?? emergency.help_type) as Emergency["help_type"],
+        address: String(data.get("address") ?? emergency.address).trim() || emergency.address,
+      });
+      onUpdated(updated);
+      setEditing(false);
+      notify(`Caso ${updated.code} actualizado.`);
+    } catch (err) {
+      setEditError(
+        err instanceof ApiError ? err.message : "No se pudo guardar.",
+      );
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  const activeItems = stockItems.filter((item) => item.active);
+
+  return (
+    <div
+      className="modal-scrim drawer-scrim"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drawer-title"
+      >
+        <div className="modal-head">
+          <div>
+            <span className="eyebrow">{emergency.code}</span>
+            <h2 id="drawer-title">{emergency.title}</h2>
+            <p>
+              {categoryLabel(emergency.category)}, {helpLabel(emergency.help_type).toLowerCase()} · {sectorLabel}
+            </p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar detalle">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="drawer-status">
+          <StatusBadge tone={stateTone(emergency.state)}>
+            {stateLabel(emergency.state)}
+          </StatusBadge>
+          <div className="state-switch" role="group" aria-label="Cambiar estado">
+            {STATE_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={option === emergency.state ? "is-active" : ""}
+                disabled={stateBusy || option === emergency.state}
+                onClick={() => changeState(option)}
+              >
+                {stateLabel(option)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <dl className="drawer-facts">
+          <div>
+            <dt>Dirección</dt>
+            <dd>{emergency.address}</dd>
+          </div>
+          <div>
+            <dt>Coordenadas</dt>
+            <dd>
+              {emergency.latitude.toFixed(5)}, {emergency.longitude.toFixed(5)}
+            </dd>
+          </div>
+          <div>
+            <dt>Actualizado</dt>
+            <dd>{formatDateTime(emergency.updated_at)}</dd>
+          </div>
+        </dl>
+
+        <div className="drawer-section">
+          <div className="drawer-section-head">
+            <h3>Entregas registradas</h3>
+            <span>{emergency.delivered.length}</span>
+          </div>
+          {emergency.delivered.length === 0 ? (
+            <p className="drawer-empty">Sin entregas registradas todavía.</p>
+          ) : (
+            <ul className="delivered-list">
+              {emergency.delivered.map((line, index) => (
+                <li key={`${line.item}-${index}`}>
+                  <span>{line.item}</span>
+                  <strong>× {line.quantity}</strong>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <form className="drawer-form" onSubmit={submitDelivery}>
+            <label className="field">
+              <span>Artículo</span>
+              <select
+                value={deliveryItem}
+                onChange={(event) => setDeliveryItem(event.target.value)}
+                required
+              >
+                <option value="">Seleccionar…</option>
+                {activeItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} (stock: {item.quantity})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Cantidad</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={deliveryQty}
+                onChange={(event) => setDeliveryQty(event.target.value)}
+                required
+              />
+            </label>
+            <button
+              className="button button--secondary"
+              type="submit"
+              disabled={deliveryBusy}
+            >
+              {deliveryBusy ? "Registrando…" : "Registrar entrega"}
+            </button>
+          </form>
+          {deliveryError && (
+            <p className="form-error" role="alert">
+              {deliveryError}
+            </p>
+          )}
+          <p className="drawer-hint">
+            Descuenta stock atómicamente; si falta stock no se mueve nada.
+          </p>
+        </div>
+
+        <div className="drawer-section">
+          <div className="drawer-section-head">
+            <h3>Ficha del evento</h3>
+            <button
+              className="panel-action"
+              type="button"
+              onClick={() => {
+                setEditing((value) => !value);
+                setEditError(null);
+              }}
+            >
+              {editing ? "Cancelar" : "Editar"}
+            </button>
+          </div>
+          {editing ? (
+            <form className="drawer-form" onSubmit={submitEdit}>
+              <label className="field field--full">
+                <span>Título</span>
+                <input name="title" defaultValue={emergency.title} required />
+              </label>
+              <label className="field">
+                <span>Tipo de evento</span>
+                <select name="category" defaultValue={emergency.category}>
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {categoryLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Tipo de ayuda</span>
+                <select name="help_type" defaultValue={emergency.help_type}>
+                  {HELP_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {helpLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field field--full">
+                <span>Dirección</span>
+                <input name="address" defaultValue={emergency.address} required />
+              </label>
+              {editError && (
+                <p className="form-error" role="alert">
+                  {editError}
+                </p>
+              )}
+              <button
+                className="button button--primary"
+                type="submit"
+                disabled={editBusy}
+              >
+                {editBusy ? "Guardando…" : "Guardar cambios"}
+              </button>
+            </form>
+          ) : (
+            <p className="drawer-empty">Código {emergency.code} · creado {formatDateTime(emergency.created_at)}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type StockModalProps = {
+  items: StockItem[];
+  busy: boolean;
+  onClose: () => void;
+  onCreateItem: (input: {
+    name: string;
+    unit: string;
+    category: (typeof STOCK_CATEGORIES)[number];
+    quantity: number;
+    threshold: number;
+  }) => Promise<void>;
+  onPurchase: (itemId: number, quantity: number) => Promise<void>;
+};
+
+function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockModalProps) {
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [purchaseItem, setPurchaseItem] = useState("");
+  const [purchaseQty, setPurchaseQty] = useState("10");
+  const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+
+  async function submitItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const name = String(data.get("name") ?? "").trim();
+    const unit = String(data.get("unit") ?? "").trim() || "unidad";
+    const quantity = Number(data.get("quantity") ?? 0);
+    const threshold = Number(data.get("threshold") ?? 0);
+
+    if (name.length < 2) {
+      setItemError("El nombre debe tener al menos 2 caracteres.");
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity < 0 || !Number.isFinite(threshold) || threshold < 0) {
+      setItemError("Cantidad y umbral deben ser números no negativos.");
+      return;
+    }
+
+    setItemError(null);
+    try {
+      await onCreateItem({
+        name,
+        unit,
+        category: String(data.get("category") ?? "otro") as (typeof STOCK_CATEGORIES)[number],
+        quantity,
+        threshold,
+      });
+      event.currentTarget.reset();
+    } catch (err) {
+      setItemError(err instanceof ApiError ? err.message : "No se pudo crear el artículo.");
+    }
+  }
+
+  async function submitPurchase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const itemId = Number(purchaseItem);
+    const quantity = Number(purchaseQty);
+    if (!itemId || !Number.isInteger(quantity) || quantity <= 0) {
+      setPurchaseError("Elige un artículo y una cantidad entera mayor que cero.");
+      return;
+    }
+    setPurchaseBusy(true);
+    setPurchaseError(null);
+    try {
+      await onPurchase(itemId, quantity);
+      setPurchaseQty("10");
+    } catch (err) {
+      setPurchaseError(err instanceof ApiError ? err.message : "No se pudo registrar la compra.");
+    } finally {
+      setPurchaseBusy(false);
+    }
+  }
+
+  const activeItems = items.filter((item) => item.active);
+
+  return (
+    <div
+      className="modal-scrim"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stock-title"
+      >
+        <div className="modal-head">
+          <div>
+            <span className="eyebrow">Bodega</span>
+            <h2 id="stock-title">Existencias</h2>
+            <p>{items.length} artículos · {items.filter((item) => item.low_stock).length} bajo mínimo</p>
+          </div>
+          <button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar bodega">
+            <X size={16} />
+          </button>
+        </div>
+
+        {busy && items.length === 0 ? (
+          <p className="drawer-empty">Cargando existencias…</p>
+        ) : items.length === 0 ? (
+          <p className="drawer-empty">Sin artículos registrados.</p>
+        ) : (
+          <ul className="stock-list">
+            {items.map((item) => (
+              <li key={item.id} className={item.low_stock ? "is-low" : ""}>
+                <span className="stock-name">
+                  <strong>{item.name}</strong>
+                  <span>
+                    {item.unit} · umbral {item.threshold}
+                    {!item.active && " · retirado"}
+                  </span>
+                </span>
+                <strong className="stock-qty">{item.quantity}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="drawer-section">
+          <div className="drawer-section-head">
+            <h3>Registrar compra</h3>
+          </div>
+          <form className="drawer-form" onSubmit={submitPurchase}>
+            <label className="field">
+              <span>Artículo</span>
+              <select
+                value={purchaseItem}
+                onChange={(event) => setPurchaseItem(event.target.value)}
+                required
+              >
+                <option value="">Seleccionar…</option>
+                {activeItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Cantidad</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={purchaseQty}
+                onChange={(event) => setPurchaseQty(event.target.value)}
+                required
+              />
+            </label>
+            <button
+              className="button button--secondary"
+              type="submit"
+              disabled={purchaseBusy}
+            >
+              {purchaseBusy ? "Registrando…" : "Sumar stock"}
+            </button>
+          </form>
+          {purchaseError && (
+            <p className="form-error" role="alert">
+              {purchaseError}
+            </p>
+          )}
+        </div>
+
+        <div className="drawer-section">
+          <div className="drawer-section-head">
+            <h3>Nuevo artículo</h3>
+          </div>
+          <form className="case-form" onSubmit={submitItem}>
+            <div className="form-grid">
+              <label className="field field--full">
+                <span>Nombre</span>
+                <input name="name" placeholder="Ej. Colchoneta 1 plaza" autoComplete="off" />
+              </label>
+              <label className="field">
+                <span>Unidad</span>
+                <input name="unit" placeholder="unidad" defaultValue="unidad" autoComplete="off" />
+              </label>
+              <label className="field">
+                <span>Categoría</span>
+                <select name="category" defaultValue="abrigo">
+                  {STOCK_CATEGORIES.map((option) => (
+                    <option key={option} value={option}>
+                      {helpLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Stock inicial</span>
+                <input name="quantity" type="number" min={0} step={1} defaultValue={0} />
+              </label>
+              <label className="field">
+                <span>Umbral mínimo</span>
+                <input name="threshold" type="number" min={0} step={1} defaultValue={10} />
+              </label>
+            </div>
+            {itemError && (
+              <p className="form-error" role="alert">
+                {itemError}
+              </p>
+            )}
+            <div className="modal-actions">
+              <button className="button button--primary" type="submit">
+                Crear artículo
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState("centro");
-  const [cases, setCases] = useState<RecentCase[]>(RECENT_CASES);
+  const [user, setUser] = useState<User | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [emergencies, setEmergencies] = useState<Emergency[]>([]);
+  const [loadingCases, setLoadingCases] = useState(true);
+  const [casesError, setCasesError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+  const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [mapMode, setMapMode] = useState<"map" | "satellite">("map");
   const mapRef = useRef<L.Map | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(true);
@@ -422,38 +1008,184 @@ export default function HomePage() {
   const [notificationsRead, setNotificationsRead] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [newCaseOpen, setNewCaseOpen] = useState(false);
+  const [detailCode, setDetailCode] = useState<string | null>(null);
+  const [stockOpen, setStockOpen] = useState(false);
+  const [stockBusy, setStockBusy] = useState(false);
 
   const selected = getMacrosector(selectedId);
-  const totalCases = useMemo(
-    () =>
-      MACROSECTORS.reduce((total, sector) => total + sector.cases, 0) +
-      Math.max(0, cases.length - RECENT_CASES.length),
-    [cases.length],
-  );
+
+  function showToast(message: string) {
+    setToast(message);
+  }
+
+  const loadEmergencies = useCallback(async () => {
+    setLoadingCases(true);
+    setCasesError(null);
+    try {
+      const result = await api.listEmergencies();
+      setEmergencies(result.emergencies);
+      setForbidden(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) {
+        setForbidden(true);
+        setEmergencies([]);
+      } else {
+        setCasesError(
+          err instanceof ApiError ? err.message : "No se pudieron cargar los casos.",
+        );
+      }
+    } finally {
+      setLoadingCases(false);
+    }
+  }, []);
+
+  const loadStock = useCallback(async () => {
+    try {
+      const result = await api.listStockItems();
+      setStockItems(result.items);
+    } catch {
+      // Stock failures surface inside the stock modal, not globally.
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function checkSession() {
+      if (!getToken()) {
+        router.replace("/login");
+        return;
+      }
+      try {
+        const account = await api.me();
+        if (cancelled) return;
+        setUser(account);
+        setSessionChecked(true);
+        void loadEmergencies();
+        void loadStock();
+      } catch {
+        if (cancelled) return;
+        clearToken();
+        router.replace("/login");
+      }
+    }
+    void checkSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, loadEmergencies, loadStock]);
+
+  function refreshEmergency(updated: Emergency) {
+    setEmergencies((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item)),
+    );
+  }
+
+  async function handleLogout() {
+    setUserMenuOpen(false);
+    try {
+      await api.logout();
+    } catch {
+      // Even if revocation fails, the local session ends here.
+    }
+    clearToken();
+    router.replace("/login");
+  }
 
   const filteredCases = useMemo(() => {
     const query = submittedSearch.trim().toLowerCase();
-    if (!query) return cases;
+    if (!query) return emergencies;
 
-    return cases.filter((item) => {
-      const sector = getMacrosector(item.sectorId);
+    return emergencies.filter((item) => {
+      const sectorLabel = item.macrosector
+        ? getMacrosector(item.macrosector).label
+        : "Sin sector";
       return [
-        item.id,
-        item.person,
-        item.aidType,
-        item.status,
-        item.sectorId,
-        sector.label,
+        item.code,
+        item.title,
+        item.address,
+        categoryLabel(item.category),
+        helpLabel(item.help_type),
+        sectorLabel,
       ]
         .join(" ")
         .toLowerCase()
         .includes(query);
     });
-  }, [cases, submittedSearch]);
+  }, [emergencies, submittedSearch]);
 
   const visibleCases = showAllCases ? filteredCases : filteredCases.slice(0, 3);
-  const deltaClass =
-    selected.delta < 0 ? "delta--down" : selected.delta === 0 ? "delta--flat" : "";
+
+  const sectorEmergencies = useMemo(
+    () => emergencies.filter((item) => item.macrosector === selectedId),
+    [emergencies, selectedId],
+  );
+
+  const sectorDelivered = useMemo(
+    () =>
+      sectorEmergencies.reduce(
+        (total, item) =>
+          total + item.delivered.reduce((sum, line) => sum + line.quantity, 0),
+        0,
+      ),
+    [sectorEmergencies],
+  );
+
+  const sectorHelpMix = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of sectorEmergencies) {
+      counts.set(item.help_type, (counts.get(item.help_type) ?? 0) + 1);
+    }
+    const total = sectorEmergencies.length || 1;
+    return [...counts.entries()].map(([helpType, count]) => ({
+      label: helpLabel(helpType),
+      value: Math.round((count / total) * 100),
+      color: HELP_COLORS[helpType] ?? "#929D96",
+    }));
+  }, [sectorEmergencies]);
+
+  const caseCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of emergencies) {
+      if (!item.macrosector) continue;
+      counts[item.macrosector] = (counts[item.macrosector] ?? 0) + 1;
+    }
+    return counts;
+  }, [emergencies]);
+
+  const unlocatedCount = useMemo(
+    () => emergencies.filter((item) => !item.macrosector).length,
+    [emergencies],
+  );
+
+  const alerts = useMemo<OperationalAlert[]>(() => {
+    const list: OperationalAlert[] = [];
+    const lowItems = stockItems.filter((item) => item.low_stock && item.active);
+    if (lowItems.length > 0) {
+      list.push({
+        id: "stock",
+        title: "Stock bajo mínimo",
+        detail: lowItems
+          .slice(0, 2)
+          .map((item) => item.name)
+          .join(", "),
+        count: lowItems.length,
+        tone: "danger",
+        icon: "stock",
+      });
+    }
+    const pending = emergencies.filter((item) => item.state === "recibida");
+    if (pending.length > 0) {
+      list.push({
+        id: "pending",
+        title: "Casos recibidos por atender",
+        detail: "Revisar y mover a En proceso",
+        count: pending.length,
+        tone: "info",
+        icon: "attention",
+      });
+    }
+    return list;
+  }, [emergencies, stockItems]);
 
   useEffect(() => {
     if (!toast) return;
@@ -468,26 +1200,30 @@ export default function HomePage() {
         setNewCaseOpen(false);
         return;
       }
+      if (detailCode) {
+        setDetailCode(null);
+        return;
+      }
+      if (stockOpen) {
+        setStockOpen(false);
+        return;
+      }
       setNotificationOpen(false);
       setUserMenuOpen(false);
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [newCaseOpen]);
+  }, [newCaseOpen, detailCode, stockOpen]);
 
   useEffect(() => {
-    if (!newCaseOpen) return;
+    if (!newCaseOpen && !detailCode && !stockOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [newCaseOpen]);
-
-  function showToast(message: string) {
-    setToast(message);
-  }
+  }, [newCaseOpen, detailCode, stockOpen]);
 
   function openNewCase() {
     setNotificationOpen(false);
@@ -531,43 +1267,52 @@ export default function HomePage() {
     setShowAllCases(false);
   }
 
-  function handleCaseSelect(item: RecentCase) {
-    setSelectedId(item.sectorId);
-    showToast(`${item.id} · ${item.status}`);
+  function handleCaseSelect(item: Emergency) {
+    if (item.macrosector) {
+      setSelectedId(item.macrosector);
+    }
+    mapRef.current?.flyTo([item.latitude, item.longitude], 15, {
+      duration: 0.8,
+    });
+    setDetailCode(item.code);
   }
 
-  function handleCreateCase(payload: {
-    person: string;
-    sectorId: string;
-    urgency: "Normal" | "Urgente";
-    coords?: { lat: number; lng: number; accuracy: number };
-  }) {
-    const folio = `AY-2026-${String(483 + cases.length).padStart(6, "0")}`;
-    const nextCase: RecentCase = {
-      id: folio,
-      person: payload.person,
-      aidType: "Por evaluar",
-      status: "En evaluación",
-      tone: "info",
-      sectorId: payload.sectorId,
-      time: "Ahora",
-      urgency: payload.urgency,
-    };
-
-    setCases((current) => [nextCase, ...current]);
-    setSelectedId(payload.sectorId);
+  async function handleCreateCase(payload: CreateEmergencyInput) {
+    const record = await api.createEmergency(payload);
+    setEmergencies((current) => [record, ...current]);
+    if (record.macrosector) {
+      setSelectedId(record.macrosector);
+    }
     setNewCaseOpen(false);
     setSubmittedSearch("");
     setSearch("");
+    mapRef.current?.flyTo([record.latitude, record.longitude], 16, {
+      duration: 0.8,
+    });
+    showToast(`Caso ${record.code} creado.`);
+    void loadStock();
+  }
 
-    if (payload.coords) {
-      mapRef.current?.flyTo([payload.coords.lat, payload.coords.lng], 16, {
-        duration: 0.8,
-      });
-      showToast(`Caso ${folio} creado con ubicación GPS.`);
-    } else {
-      showToast(`Caso ${folio} creado como borrador.`);
-    }
+  async function handleCreateStockItem(input: {
+    name: string;
+    unit: string;
+    category: (typeof STOCK_CATEGORIES)[number];
+    quantity: number;
+    threshold: number;
+  }) {
+    await api.createStockItem(input);
+    await loadStock();
+    showToast(`Artículo ${input.name} creado.`);
+  }
+
+  async function handlePurchase(itemId: number, quantity: number) {
+    await api.createMovement({
+      item_id: itemId,
+      delta: quantity,
+      reason: "compra",
+    });
+    await loadStock();
+    showToast("Compra registrada en bodega.");
   }
 
   function togglePanel(id: string) {
@@ -604,14 +1349,37 @@ export default function HomePage() {
     showToast("Vista centrada en Temuco.");
   }
 
-  function handleNotificationSelect(alert: (typeof OPERATIONAL_ALERTS)[number]) {
+  function handleNotificationSelect(alert: OperationalAlert) {
     setNotificationOpen(false);
-    showToast(`Abriendo: ${alert.title.toLowerCase()}.`);
+    if (alert.id === "stock") {
+      setStockBusy(true);
+      setStockOpen(true);
+      void loadStock().finally(() => setStockBusy(false));
+      return;
+    }
+    showToast(`${alert.title.toLowerCase()}: ${alert.detail.toLowerCase()}.`);
   }
 
   function closePopovers() {
     setNotificationOpen(false);
     setUserMenuOpen(false);
+  }
+
+  const detailEmergency = detailCode
+    ? (emergencies.find((item) => item.code === detailCode) ?? null)
+    : null;
+
+  if (!sessionChecked) {
+    return (
+      <div className="page-frame">
+        <div className="gate-loading" role="status" aria-live="polite">
+          <span className="brand-mark">
+            <Landmark size={18} />
+          </span>
+          <span>Verificando sesión…</span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -645,7 +1413,7 @@ export default function HomePage() {
           <div className="topbar-actions">
             <span className="status-pill">
               <span className="live-dot" />
-              {totalCases} casos activos
+              {emergencies.length} casos activos
             </span>
 
             <button className="topbar-primary" type="button" onClick={openNewCase}>
@@ -666,7 +1434,9 @@ export default function HomePage() {
                 }}
               >
                 <Bell size={16} />
-                {!notificationsRead && <span className="notification-dot" />}
+                {!notificationsRead && alerts.length > 0 && (
+                  <span className="notification-dot" />
+                )}
               </button>
 
               {notificationOpen && (
@@ -679,7 +1449,11 @@ export default function HomePage() {
                   <div className="popover-head">
                     <div>
                       <strong>Notificaciones</strong>
-                      <span>{notificationsRead ? "Sin pendientes" : "3 pendientes"}</span>
+                      <span>
+                        {notificationsRead || alerts.length === 0
+                          ? "Sin pendientes"
+                          : `${alerts.reduce((sum, alert) => sum + alert.count, 0)} pendientes`}
+                      </span>
                     </div>
                     <button
                       className="icon-button icon-button--small"
@@ -692,7 +1466,10 @@ export default function HomePage() {
                   </div>
 
                   <div className="popover-list">
-                    {OPERATIONAL_ALERTS.map((alert) => (
+                    {alerts.length === 0 && (
+                      <p className="drawer-empty">Sin alertas operativas.</p>
+                    )}
+                    {alerts.map((alert) => (
                       <button
                         key={alert.id}
                         className="notification-row"
@@ -739,18 +1516,24 @@ export default function HomePage() {
                   setNotificationOpen(false);
                 }}
               >
-                <span className="avatar">MC</span>
-                <span className="user-name">María Contreras</span>
+                <span className="avatar">
+                  {(user?.display_name ?? "?").slice(0, 2).toUpperCase()}
+                </span>
+                <span className="user-name">{user?.display_name ?? "…"}</span>
                 <ChevronDown size={13} />
               </button>
 
               {userMenuOpen && (
                 <div className="popover user-popover" id="user-menu" role="menu">
                   <div className="user-summary">
-                    <span className="avatar avatar--large">MC</span>
+                    <span className="avatar avatar--large">
+                      {(user?.display_name ?? "?").slice(0, 2).toUpperCase()}
+                    </span>
                     <div>
-                      <strong>María Contreras</strong>
-                      <span>Profesional social, Centro</span>
+                      <strong>{user?.display_name ?? "…"}</strong>
+                      <span>
+                        {user ? `${user.username} · ${user.role === "admin" ? "Administración" : "Usuario"}` : ""}
+                      </span>
                     </div>
                   </div>
 
@@ -758,33 +1541,8 @@ export default function HomePage() {
                     <button
                       type="button"
                       role="menuitem"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        showToast("Perfil en preparación.");
-                      }}
-                    >
-                      <UserRound size={14} />
-                      Mi perfil
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        showToast("Preferencias en preparación.");
-                      }}
-                    >
-                      <Settings size={14} />
-                      Preferencias
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
                       className="menu-item--danger"
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        window.location.assign("/login");
-                      }}
+                      onClick={() => void handleLogout()}
                     >
                       <LogOut size={14} />
                       Cerrar sesión
@@ -808,6 +1566,7 @@ export default function HomePage() {
                 onSelect={setSelectedId}
                 mapMode={mapMode}
                 onMapReady={handleMapReady}
+                counts={caseCounts}
               />
             </div>
 
@@ -938,8 +1697,8 @@ export default function HomePage() {
                 <input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Buscar RUT, folio, persona o sector"
-                  aria-label="Buscar casos por RUT, folio, persona o sector"
+                  placeholder="Buscar código, título, dirección o sector"
+                  aria-label="Buscar casos por código, título, dirección o sector"
                 />
                 {search && (
                   <button
@@ -972,46 +1731,34 @@ export default function HomePage() {
                       <span className="territory-type">{selected.type}</span>
                     </div>
                     <p>
-                      {selected.cases} casos activos,{" "}
-                      {selected.attentions.toLocaleString("es-CL")} atenciones
+                      {sectorEmergencies.length} eventos
+                      {unlocatedCount > 0 &&
+                        ` · ${unlocatedCount} sin sector en total`}
                     </p>
                   </div>
 
                   <div className="metric-grid">
                     <Metric
-                      label="Atenciones"
-                      value={selected.attentions.toLocaleString("es-CL")}
+                      label="Eventos"
+                      value={String(sectorEmergencies.length)}
                     />
-                    <Metric label="Personas" value={selected.people.toLocaleString("es-CL")} />
-                    <Metric label="Casos" value={String(selected.cases)} />
+                    <Metric
+                      label="En proceso"
+                      value={String(
+                        sectorEmergencies.filter(
+                          (item) => item.state === "en_proceso",
+                        ).length,
+                      )}
+                    />
+                    <Metric
+                      label="Unidades entregadas"
+                      value={sectorDelivered.toLocaleString("es-CL")}
+                    />
                   </div>
 
-                  <div className={`delta ${deltaClass}`}>
-                    {selected.delta < 0 ? (
-                      <ArrowDown size={12} />
-                    ) : selected.delta === 0 ? (
-                      <Minus size={12} />
-                    ) : (
-                      <ArrowUp size={12} />
-                    )}
-                    <strong>
-                      {Math.abs(selected.delta).toLocaleString("es-CL", {
-                        maximumFractionDigits: 1,
-                      })}{" "}
-                      %
-                    </strong>
-                    <span>vs. mes anterior</span>
-                  </div>
-
-                  <AidMixBars mix={selected.aidMix} />
-
-                  <button
-                    className="text-link"
-                    type="button"
-                    onClick={() => showToast("Análisis territorial en preparación.")}
-                  >
-                    Ver análisis territorial
-                  </button>
+                  {sectorHelpMix.length > 0 && (
+                    <AidMixBars mix={sectorHelpMix} />
+                  )}
                 </Panel>
 
                 <Panel
@@ -1043,7 +1790,42 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {filteredCases.length === 0 ? (
+                  {loadingCases ? (
+                    <div className="empty-cases">
+                      <span className="empty-icon">
+                        <Search size={16} />
+                      </span>
+                      <strong>Cargando casos…</strong>
+                      <p>Conectando con el servidor municipal.</p>
+                    </div>
+                  ) : casesError ? (
+                    <div className="empty-cases">
+                      <span className="empty-icon">
+                        <AlertTriangle size={16} />
+                      </span>
+                      <strong>No se pudieron cargar los casos</strong>
+                      <p>{casesError}</p>
+                      <button
+                        className="text-link"
+                        type="button"
+                        onClick={() => void loadEmergencies()}
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  ) : forbidden ? (
+                    <div className="empty-cases">
+                      <span className="empty-icon">
+                        <UserRound size={16} />
+                      </span>
+                      <strong>Sin acceso a emergencias</strong>
+                      <p>
+                        Tu cuenta ({user?.role ?? "usuario"}) no tiene permisos
+                        de administración. Pide a una administración que cambie
+                        tu rol.
+                      </p>
+                    </div>
+                  ) : filteredCases.length === 0 ? (
                     <EmptyCases query={submittedSearch} onClear={clearSearch} />
                   ) : (
                     <div className="case-list">
@@ -1056,18 +1838,23 @@ export default function HomePage() {
                         >
                           <span className="case-copy">
                             <span className="case-topline">
-                              <span className="case-folio">{item.id}</span>
-                              {item.urgency === "Urgente" && (
-                                <span className="urgent-dot" title="Urgente" />
-                              )}
-                              <span className="case-time">{item.time}</span>
+                              <span className="case-folio">{item.code}</span>
+                              <span className="case-time">
+                                {formatDateTime(item.updated_at)}
+                              </span>
                             </span>
-                            <span className="case-person">{item.person}</span>
+                            <span className="case-person">{item.title}</span>
                             <span className="case-meta">
-                              {item.aidType}, {getMacrosector(item.sectorId).shortLabel}
+                              {categoryLabel(item.category)},{" "}
+                              {helpLabel(item.help_type).toLowerCase()}
+                              {item.macrosector
+                                ? `, ${getMacrosector(item.macrosector).shortLabel}`
+                                : ", sin sector"}
                             </span>
                           </span>
-                          <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
+                          <StatusBadge tone={stateTone(item.state)}>
+                            {stateLabel(item.state)}
+                          </StatusBadge>
                         </button>
                       ))}
                     </div>
@@ -1078,17 +1865,20 @@ export default function HomePage() {
                   id="alerts"
                   icon={<AlertTriangle size={15} />}
                   title="Alertas operativas"
-                  badge={OPERATIONAL_ALERTS.length}
+                  badge={alerts.length}
                   collapsed={Boolean(collapsed.alerts)}
                   onToggle={() => togglePanel("alerts")}
                 >
                   <div className="alert-list">
-                    {OPERATIONAL_ALERTS.map((alert) => (
+                    {alerts.length === 0 && (
+                      <p className="drawer-empty">Sin alertas operativas.</p>
+                    )}
+                    {alerts.map((alert) => (
                       <button
                         className="alert-row"
                         type="button"
                         key={alert.id}
-                        onClick={() => showToast(`Abriendo: ${alert.title.toLowerCase()}.`)}
+                        onClick={() => handleNotificationSelect(alert)}
                       >
                         <span className={`alert-icon alert-icon--${alert.tone}`}>
                           <AlertGlyph icon={alert.icon} />
@@ -1116,20 +1906,18 @@ export default function HomePage() {
                   </button>
 
                   <div className="quick-grid">
-                    {QUICK_ACTIONS.map((action) => {
-                      const Icon = action.icon;
-                      return (
-                        <button
-                          className="quick-action"
-                          type="button"
-                          key={action.label}
-                          onClick={() => showToast(action.message)}
-                        >
-                          <Icon size={14} />
-                          {action.label}
-                        </button>
-                      );
-                    })}
+                    <button
+                      className="quick-action"
+                      type="button"
+                      onClick={() => {
+                        setStockBusy(true);
+                        setStockOpen(true);
+                        void loadStock().finally(() => setStockBusy(false));
+                      }}
+                    >
+                      <Package size={14} />
+                      Revisar bodega
+                    </button>
                   </div>
                 </Panel>
               </div>
@@ -1155,9 +1943,29 @@ export default function HomePage() {
 
         {newCaseOpen && (
           <NewCaseModal
-            sectorId={selectedId}
             onClose={() => setNewCaseOpen(false)}
             onCreate={handleCreateCase}
+          />
+        )}
+
+        {detailEmergency && (
+          <EmergencyDrawer
+            emergency={detailEmergency}
+            stockItems={stockItems}
+            onClose={() => setDetailCode(null)}
+            onUpdated={refreshEmergency}
+            onStockChanged={() => void loadStock()}
+            notify={showToast}
+          />
+        )}
+
+        {stockOpen && (
+          <StockModal
+            items={stockItems}
+            busy={stockBusy}
+            onClose={() => setStockOpen(false)}
+            onCreateItem={handleCreateStockItem}
+            onPurchase={handlePurchase}
           />
         )}
       </div>

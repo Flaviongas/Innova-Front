@@ -207,23 +207,39 @@ The palette is built around a forest-green primary color, neutral surfaces, and 
 | Token | Color |
 | --- | --- |
 | Success | `#27845F` |
+| Success strong (text on light) | `#1D6A4B` |
 | Warning | `#C58A32` |
+| Warning strong (text on light) | `#8A5A17` |
+| Warning wash | `#FBF4E7` |
+| Warning border | `#F0DFC0` |
 | Danger | `#B94D49` |
+| Danger strong (text on light) | `#9A3F3B` |
+| Danger wash | `#FBF1F0` |
 | Information | `#377EAE` |
+| Information strong (text on light) | `#2C6690` |
+
+The base tokens are for fills and icons. The `strong` variants exist because the base colors do not reach sufficient contrast as small text on white; always use the strong variant for status text. Washes are reserved for callouts that need a tinted background.
 
 ### 3.4 Semantic assignments
 
 | Token | Color | Usage |
 | --- | --- | --- |
-| `primary` | `#125742` | Primary buttons, active navigation, selected map areas, selected markers |
+| `primary` | `#125742` | Primary buttons, active navigation, selected map areas, selected polygon outline |
 | `primary-hover` | `#0F4937` | Hovered primary actions |
+| `primary-active` | `#0B3F30` | Pressed states, dark brand surfaces |
+| `primary-deep` | `#082f24` | Deepest brand gradient stops |
 | `primary-subtle` | `#EFF5F1` | Selected rows, current case, subtle highlights |
 | `background` | `#FFFFFF` | Main application surface |
 | `surface-secondary` | `#F7F9F8` | Secondary content surfaces |
+| `surface-dark` | `#1F3528` | Map stage in satellite mode |
+| `surface-inverse` | `#19241F` | Toasts and dark floating surfaces |
 | `border` | `#E3E9E5` | Dividers, card borders, input outlines |
+| `border-subtle` | `#EEF2EF` | Hairline dividers inside panels, progress tracks |
+| `border-strong` | `#CDD7D0` | Emphasized borders, scrollbars, drag handles |
 | `text-primary` | `#19241F` | Headings and primary text |
 | `text-secondary` | `#69766F` | Descriptions and supporting information |
 | `text-muted` | `#929D96` | Disabled controls and tertiary information |
+| `mint` | `#A9CDBB` | Light green accents on dark surfaces |
 
 ### 3.5 Color usage rules
 
@@ -234,6 +250,7 @@ The palette is built around a forest-green primary color, neutral surfaces, and 
 - Because the brand and the success color are both green, **always pair status color with a text label or icon**. Never rely on color alone.
 - Do not introduce additional saturated colors unless they encode meaningful information.
 - Use red for destructive actions, errors, “Rechazada”, “Agotado”, and the “Urgente” badge. Do not use red merely to draw attention.
+- Every color in the interface comes from the token tables above. No one-off hex values: hairlines use `border-subtle`, status text uses the `strong` variants, white surfaces use `surface`, white text on dark uses `text-inverse`. Translucent white overlays (`rgba(255, 255, 255, …)`) are allowed for glass effects over maps and photos.
 
 ### 3.6 Data visualization palette
 
@@ -247,16 +264,15 @@ Use category colors for aid types. Use the territorial scale for map intensity a
 | Apoyo social / derivación | `#7652A6` |
 | Otras ayudas | `#A3BBAE` |
 
-**Territorial scale** — use for choropleths and ordered intensity, from low to high:
+**Territorial scale** — use for choropleths and ordered intensity, from low to high. Mirrored by `territoryFill()` in `lib/data.ts` so the map legend and the polygon fills can never disagree:
 
-| Step | Color |
-| --- | --- |
-| 1 | `#EFF5F1` |
-| 2 | `#DCEBE3` |
-| 3 | `#A9CDBB` |
-| 4 | `#6FA98F` |
-| 5 | `#3C8267` |
-| 6 | `#125742` |
+| Step | Color | Cases |
+| --- | --- | --- |
+| 1 | `#DCEBE3` | 0–2 |
+| 2 | `#A9CDBB` | 3–5 |
+| 3 | `#6FA98F` | 6–8 |
+| 4 | `#3C8267` | 9–11 |
+| 5 | `#125742` | 12+ |
 
 **Chart rules:**
 
@@ -279,19 +295,25 @@ Use category colors for aid types. Use the territorial scale for map intensity a
 
 | Element | Size | Weight | Line height |
 | --- | --- | --- | --- |
-| Page title | 28px | 600 | 36px |
-| Section title | 20px | 600 | 28px |
-| Card title | 16px | 600 | 22px |
+| Display | `clamp(40px, 4.6vw, 62px)` | 700 | 1.0 |
+| Title | `clamp(28px, 3.3vw, 40px)` | 700 | 1.08 |
+| Page title | 28px | 700 | 36px |
+| Section title | 20px | 700 | 28px |
+| Card title | 16px | 700 | 22px |
 | Body | 14px | 400 | 20px |
 | Secondary body | 13px | 400 | 18px |
+| Caption | 12px | 500–600 | 16px |
 | Navigation | 13px | 500 | 18px |
 | Label | 12px | 500 | 16px |
 | Metadata | 11px | 400 | 16px |
+| Metadata micro | 8–11.5px in 0.5px steps | 400–500 | 1.3–1.45 |
+
+Display is reserved for the landing hero and the login headline. Title is for section headings. Metadata micro sizes are only for compact metadata (badges, ticks, attributions, tooltips): always tabular numerals where numeric, always muted or secondary color, never for body copy.
 
 ### 4.2 Typographic rules
 
 1. Use sentence case for headings, labels, and navigation. Write “Nuevo caso”, not “NUEVO CASO”.
-2. Avoid excessive boldness. Semibold is sufficient for most titles.
+2. Titles use bold (700); UI emphasis uses semibold (600); body text stays regular (400). Do not add extra weights beyond these three.
 3. Keep supporting information visually subordinate.
 4. Use tabular numerals for RUTs, amounts, stock quantities, dates, and counters.
 5. Avoid unnecessarily large typography in information-dense panels.
@@ -373,15 +395,18 @@ Use a 4px base spacing system.
 
 ### 5.4 Border radius
 
-| Component | Radius |
-| --- | --- |
-| Small badges | 4px |
-| Inputs | 8px |
-| Buttons | 8px |
-| Cards | 12px |
-| Floating panels | 14px |
-| Dialogs | 16px |
-| Circular indicators | 50% |
+| Token | Value | Typical application |
+| --- | --- | --- |
+| `radius-xs` | 4px | Stamped status tags, tiny metadata |
+| `radius-sm` | 6px | Small icon buttons, compact controls |
+| `radius-md` | 8px | Buttons, inputs |
+| `radius-lg` | 10px | Small cards, map captions, stacked buttons |
+| `radius-xl` | 12px | Cards |
+| `radius-2xl` | 14px | Floating panels, popovers |
+| `radius-3xl` | 16px | Dialogs, sheets, login card |
+| `radius-full` | 9999px | Pills, avatars, circular indicators |
+
+Joined surfaces (inspector tab, bottom sheet) combine a token with square corners, e.g. `var(--radius-md) 0 0 var(--radius-md)`. Circular indicators use 50%.
 
 Prefer moderate rounding. The interface should feel professional and structured, not playful.
 
@@ -587,6 +612,8 @@ Cards should have a consistent structure. Do not create arbitrary decorative var
 
 ### 6.5 Tables
 
+> **Status: specified, not yet built.** The current queues use row lists. When tables arrive, they follow this spec.
+
 Tables are the primary workspace for case queues, stock, documents, and reports.
 
 | Property | Value |
@@ -647,6 +674,8 @@ Avoid turning every data attribute into a badge. Use normal text for descriptive
 
 ### 6.7 Tabs and accordions
 
+> **Status: specified, not yet built.** Case sections currently render as stacked content; the tab contract below applies when navigation between them is added.
+
 **Case tabs:** Resumen · Evaluación · Ayudas · Documentos · Historial.
 
 - Tabs are URL-addressable.
@@ -662,6 +691,8 @@ Avoid turning every data attribute into a badge. Use normal text for descriptive
 - Avoid excessive animation.
 
 ### 6.8 Timeline and history
+
+> **Status: specified, not yet built.**
 
 The timeline is used for case events and for the person’s attention history.
 
@@ -834,18 +865,18 @@ Individual case markers are available only to authorized operational roles.
 
 - Exact addresses are sensitive. Do not expose them in aggregate or public views.
 - Default tooltips show folio, macrosector, aid type, status, and urgency. Names and RUTs are masked or omitted unless the role requires them.
-- Markers may cluster. Cluster size reflects the number of cases, not the amount of aid.
-- The selected marker gets a ring and elevation; it opens the inspector.
-- Do not use marker color as the only indicator of urgency or status. Pair with shape or label.
+- The selected polygon gets a heavier outline and stronger fill; clicking a polygon opens the inspector.
+- Do not use fill color as the only indicator of urgency or status. Pair with shape or label.
 
-| Marker property | Value |
+| Polygon property | Value |
 | --- | --- |
-| Cluster diameter | 36–44px |
-| Border | 2–3px white |
-| Background | Primary green; urgency uses a labeled semantic marker |
-| Text | White, 13px semibold |
-| Selected state | Ring, shadow, and emphasis |
-| Tooltip | Dark background, white text |
+| Boundary | 1.2px primary at 45% opacity |
+| Fill | Territorial scale by active cases (`territoryFill()`), 42% opacity |
+| Selected state | 2.5px outline at 90% opacity, 60% fill, brought to front |
+| Hover | Heavier outline |
+| Tooltip | Sticky, name plus active-case count |
+
+Polygons come from the vendored official file (`public/data/macrosectores.geojson`), joined to app sectors by exact `macrosect` name (`OFFICIAL_TO_ID` in `lib/macrosectores.ts`). Fly-to targets are polygon bounding-box centers computed at runtime. The rural operational entry has no published geometry and never matches a polygon.
 
 ### 7.4 Layers
 
@@ -956,7 +987,8 @@ Buttons · Inputs · Cards · Tables · Filters · Dialogs · Timeline · Badges
 | Territorio | Map + inspector | Choropleth, legend, territory summary |
 | Reportes | Form + preview | Report builder |
 | Administración | Settings layout | Forms and tables |
-| Autenticación | Centered form | Institutional login card |
+| Autenticación | Split screen: institutional panel + form card | Expediente login |
+| Landing | Full-bleed live map + paper sheet + ledger | Territory hero, aid timeline |
 
 ### 8.3 Panel
 
@@ -1124,6 +1156,20 @@ Do not expose configuration to operational roles by default.
 - Replacing the municipality's formal document, social attention, or stock systems of record. The SPA may integrate with or reference them; system boundaries are **to confirm**.
 
 Existing municipal channels remain responsible for complaints, transparency requests, and ClaveÚnica-based services where applicable.
+
+### 8.12 Landing
+
+The public landing has one job: establish institutional trust and hand off to the login. Its only image is the territory itself.
+
+- **Hero:** full-bleed live map (same Leaflet stack as the panel, scroll-zoom disabled so it never traps page scroll) with the headline on a single paper sheet. A caption tag shows the selected macrosector and its active cases; clicking markers updates it.
+- **Ledger strip:** territory facts as one hairline-divided tabular row, not cards.
+- **Aid timeline:** the three aid types on a ruled horizontal line ordered by referential timeframe, not three identical cards. Structure encodes the time information.
+- **Transparency section:** dark brand surface, aggregate figures only, no personal data.
+- No kicker pills, no appended arrows except the single primary call to action.
+
+### 8.13 Login
+
+Split screen: a dark institutional panel with an expediente file-head (`Expediente de acceso` plus an outlined `Uso interno` stamp) over a faint real-polygon territory texture, and a quiet form card (`Ingresar`, institutional email, password, demo entry). One primary action keeps its arrow; secondary links carry none.
 
 ---
 
@@ -1488,148 +1534,105 @@ All images need alt text. Decorative images use empty alt text.
 
 For a React SPA, separate design tokens, component primitives, domain components, and page-level compositions.
 
-### 13.1 Suggested project structure
+### 13.1 Project structure
+
+Actual structure (Next.js App Router). Primitives live beside the pages that use them until a shared `ui/` package is justified; do not create abstraction layers ahead of need.
 
 ```text
-src/
-├── app/
-│   ├── App.tsx
-│   ├── router.tsx
-│   └── providers/
-│
-├── components/
-│   ├── ui/
-│   │   ├── Button/
-│   │   ├── Input/
-│   │   ├── Select/
-│   │   ├── Card/
-│   │   ├── Badge/
-│   │   ├── Table/
-│   │   ├── Tabs/
-│   │   ├── Accordion/
-│   │   ├── Dialog/
-│   │   ├── Tooltip/
-│   │   ├── Timeline/
-│   │   └── Toast/
-│   │
-│   ├── navigation/
-│   │   ├── Navbar/
-│   │   └── MobileNavigation/
-│   │
-│   ├── layout/
-│   │   ├── AppLayout/
-│   │   ├── PageHeader/
-│   │   ├── CaseContextBar/
-│   │   └── Inspector/
-│   │
-│   ├── map/
-│   │   ├── MapCanvas/
-│   │   ├── MapControls/
-│   │   ├── TerritoryLayer/
-│   │   ├── CaseLayer/
-│   │   └── MapInspector/
-│   │
-│   └── domain/
-│       ├── CaseStatusBadge/
-│       ├── PersonIdentity/
-│       ├── TerritorySelect/
-│       ├── AddressMatcher/
-│       ├── AidCard/
-│       ├── DocumentTracker/
-│       ├── StockLevel/
-│       └── ConfidentialityNotice/
-│
-├── features/
-│   ├── dashboard/
-│   ├── cases/
-│   ├── evaluation/
-│   ├── aid-delivery/
-│   ├── inventory/
-│   ├── documents/
-│   ├── territory/
-│   ├── reports/
-│   ├── auth/
-│   └── admin/
-│
-├── hooks/
-├── services/
-├── types/
-└── styles/
-    ├── tokens.css
-    ├── globals.css
-    └── utilities.css
+app/
+├── globals.css       Design tokens (:root) and panel styles
+├── marketing.css     Landing and login styles
+├── layout.tsx        Metadata and font setup
+├── page.tsx          Landing (/)
+├── login/
+│   └── page.tsx      Expediente login (/login)
+└── panel/
+    ├── layout.tsx    Panel metadata
+    └── page.tsx      Operations dashboard (/panel)
+
+components/
+├── interactive-territory-map.tsx  Leaflet map: tiles, choropleth polygons
+├── landing-hero-map.tsx           Hero wrapper (map + territory caption)
+├── login-form.tsx                 Institutional form (non-functional)
+└── login-territories.tsx          Real-polygon backdrop for login
+
+lib/
+├── data.ts           Sectors, cases, alerts (synthetic operational data)
+└── macrosectores.ts   GeoJSON loader, official-name join, centroids
+
+public/
+└── data/
+    └── macrosectores.geojson  Vendored official boundaries (WGS84)
 ```
 
-The `ui/` directory should not contain business logic. Domain components and features compose the primitives.
+Future primitives from §6 (Table, Tabs, Accordion, Timeline) go in `components/ui/` when first needed, composed from these tokens — not before.
 
 ### 13.2 CSS design tokens
 
 ```css
 :root {
-  /* Brand */
   --color-primary: #125742;
-  --color-primary-hover: #0F4937;
-  --color-primary-active: #0B3F30;
-  --color-primary-subtle: #EFF5F1;
-  --color-primary-light: #DCEBE3;
-  --color-focus: #24765A;
-  --color-focus-ring: rgba(36, 118, 90, .28);
+  --color-primary-hover: #0f4937;
+  --color-primary-active: #0b3f30;
+  --color-primary-deep: #082f24;
+  --color-primary-medium: #24765a;
+  --color-primary-subtle: #eff5f1;
+  --color-primary-light: #dcebe3;
+  --color-focus: #24765a;
+  --color-focus-ring: rgba(36, 118, 90, 0.24);
 
-  /* Surfaces */
-  --color-background: #FFFFFF;
-  --color-surface: #FFFFFF;
-  --color-surface-secondary: #F7F9F8;
-  --color-surface-map: #EAECEB;
+  --color-background: var(--color-surface);
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f7f9f8;
+  --color-surface-dark: #1f3528;
+  --color-surface-inverse: #19241f;
+  --color-border: #e3e9e5;
+  --color-border-subtle: #eef2ef;
+  --color-border-strong: #cdd7d0;
 
-  /* Borders */
-  --color-border: #E3E9E5;
-  --color-border-strong: #CDD7D0;
+  --color-text-primary: #19241f;
+  --color-text-secondary: #69766f;
+  --color-text-muted: #929d96;
+  --color-text-inverse: #ffffff;
+  --color-mint: #a9cdbb;
 
-  /* Text colors */
-  --color-text-primary: #19241F;
-  --color-text-secondary: #69766F;
-  --color-text-muted: #929D96;
-  --color-text-inverse: #FFFFFF;
+  --color-success: #27845f;
+  --color-success-strong: #1d6a4b;
+  --color-warning: #c58a32;
+  --color-warning-strong: #8a5a17;
+  --color-warning-bg: #fbf4e7;
+  --color-warning-border: #f0dfc0;
+  --color-danger: #b94d49;
+  --color-danger-strong: #9a3f3b;
+  --color-danger-subtle: #fbf1f0;
+  --color-info: #377eae;
+  --color-info-strong: #2c6690;
 
-  /* Semantic */
-  --color-success: #27845F;
-  --color-warning: #C58A32;
-  --color-danger: #B94D49;
-  --color-info: #377EAE;
+  --map-land: #e9eeea;
+  --map-water: #cfe1dd;
+  --map-road: #f4f6f5;
+  --map-boundary: #a0aaa4;
+  --map-label: #69766f;
 
-  /* Aid categories */
-  --chart-aid-goods: #4B9279;
-  --chart-aid-money: #2876B8;
-  --chart-aid-construction: #9A6A3A;
-  --chart-aid-social: #7652A6;
-  --chart-aid-other: #A3BBAE;
+  /* Choropleth scale, low to high. Mirrored by territoryFill() in lib/data.ts. */
+  --map-scale-1: #dcebe3;
+  --map-scale-2: #a9cdbb;
+  --map-scale-3: #6fa98f;
+  --map-scale-4: #3c8267;
+  --map-scale-5: #125742;
 
-  /* Territorial scale */
-  --map-scale-1: #EFF5F1;
-  --map-scale-2: #DCEBE3;
-  --map-scale-3: #A9CDBB;
-  --map-scale-4: #6FA98F;
-  --map-scale-5: #3C8267;
-  --map-scale-6: #125742;
-
-  /* Map */
-  --map-land: #EAECEB;
-  --map-water: #D7E3DF;
-  --map-road: #F4F6F5;
-  --map-boundary: #A0AAA4;
-  --map-label: #69766F;
-
-  /* Typography */
-  --font-family: 'Inter', sans-serif;
+  --font-family: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
   --font-size-xs: 11px;
+  --font-size-caption: 12px;
   --font-size-sm: 13px;
   --font-size-base: 14px;
   --font-size-lg: 16px;
   --font-size-xl: 20px;
   --font-size-2xl: 28px;
-  --font-variant-numeric: tabular-nums;
+  --font-size-display: clamp(40px, 4.6vw, 62px);
+  --font-size-title: clamp(28px, 3.3vw, 40px);
 
-  /* Spacing */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -1640,28 +1643,25 @@ The `ui/` directory should not contain business logic. Domain components and fea
   --space-10: 40px;
   --space-12: 48px;
 
-  /* Radius */
-  --radius-sm: 4px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
-  --radius-2xl: 16px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 14px;
+  --radius-3xl: 16px;
   --radius-full: 9999px;
 
-  /* Elevation */
-  --shadow-sm: 0 1px 3px rgba(15, 35, 25, .08);
-  --shadow-md: 0 4px 12px rgba(15, 35, 25, .10);
-  --shadow-lg: 0 8px 24px rgba(15, 35, 25, .14);
+  --shadow-sm: 0 1px 3px rgba(15, 35, 25, 0.08);
+  --shadow-md: 0 4px 12px rgba(15, 35, 25, 0.1);
+  --shadow-lg: 0 8px 24px rgba(15, 35, 25, 0.14);
+  --shadow-panel: 0 4px 14px rgba(15, 35, 25, 0.07);
 
-  /* Layout */
-  --navbar-height: 60px;
-  --case-context-height: 56px;
-  --inspector-width: 320px;
+  --navbar-height: 64px;
+  --inspector-width: 380px;
   --content-max-width: 1440px;
-  --table-row-height: 44px;
-  --tap-target-min: 44px;
 }
-```
+
 
 ### 13.3 Component styling contract
 
@@ -1735,21 +1735,24 @@ Avoid separate CSS implementations for visually identical buttons, cards, or tab
 
 Use this checklist during implementation and code review.
 
-**Progress:** 0/21 completed.
+**Progress:** 0/25 completed.
 
 - [ ] All pages use the same global navigation and active-state treatment.
-- [ ] Only approved brand and semantic colors are used.
-- [ ] Typography follows the defined scale.
+- [ ] Only token colors are used — no raw hex outside `:root`, no raw radii, no off-scale type outside the micro tier.
+- [ ] Typography follows the defined scale, including Display, Title, and the metadata micro tier.
 - [ ] Spacing follows the 4px system.
 - [ ] Buttons use standardized variants and sizes.
 - [ ] Inputs have consistent focus, error, and disabled states.
 - [ ] Cards share the same border, radius, and padding conventions.
-- [ ] Tables support sorting, filtering, loading, empty, and error states.
-- [ ] Icons use a consistent outline style.
+- [ ] Tables support sorting, filtering, loading, empty, and error states. (Future — §6.5.)
+- [ ] Icons render inline at text size with no tinted containers.
+- [ ] Statuses use outline stamps with text labels, never filled pills or color alone.
+- [ ] No kicker pills above headings; arrows only on the single primary call to action per page.
 - [ ] Side panels use standardized dimensions and behavior.
 - [ ] Responsive layouts are defined for mobile, tablet, and desktop.
 - [ ] Keyboard accessibility and visible focus indicators are supported.
 - [ ] Map layers, legends, and category colors remain consistent.
+- [ ] Map polygons come from the vendored official file; legend and `territoryFill()` agree.
 - [ ] Map views default to aggregate territory; exact locations are restricted.
 - [ ] RUTs and names are masked where full identity is not required.
 - [ ] Territorial exports are anonymized by default.
@@ -1757,6 +1760,7 @@ Use this checklist during implementation and code review.
 - [ ] Pending regularization is visible and cannot be hidden by closure.
 - [ ] No automatic aid assignment from an event type exists.
 - [ ] No batch approval or batch delivery exists.
+- [ ] Landing follows the hero/ledger/timeline patterns (§8.12); login follows the expediente pattern (§8.13).
 - [ ] Unconfirmed rules are marked and configurable.
 
 ---
@@ -1771,16 +1775,17 @@ Use this checklist during implementation and code review.
 | --- | --- |
 | Primary color | **Forest Green** `#125742` |
 | Primary surface | **Neutral White** `#FFFFFF` |
-| Typography | **Inter** — sans-serif, compact, legible |
+| Typography | **Inter** — Display/Title scale for heroes and sections, tabular numerals for operations |
 | Language | **Spanish (Chile)** — `es-CL` |
-| Iconography | **Lucide** — consistent outline icons |
+| Iconography | **Lucide** — inline at text size, no containers |
 | Spacing | **4px scale** — 4 / 8 / 12 / 16 / 24 / 32 |
+| Radius | **7-step scale** — xs 4 / sm 6 / md 8 / lg 10 / xl 12 / 2xl 14 / 3xl 16 |
 | Component style | **Floating surfaces** — white cards, subtle shadows, restrained borders |
 | Workspace pattern | **Primary workspace + contextual inspector** |
 | Primary map use | **Territorial analysis**, not individual case browsing |
-| Default map data | **Aggregate by macrosector**, with a table alternative |
+| Default map data | **Official polygons** (vendored), choropleth by active cases |
 | Interaction language | **Forest green** for selection and primary actions |
-| Status language | Text + icon + semantic color; never color alone |
+| Status language | **Outline stamps** with text; never color alone |
 | Privacy default | **Masked, role-based, aggregate** |
 
 **Design identity:**

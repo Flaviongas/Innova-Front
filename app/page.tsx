@@ -63,6 +63,7 @@ export default function LandingPage() {
           <nav className="landing-nav" aria-label="Secciones">
             <a href="#ayudas">Tipos de ayuda</a>
             <a href="#transparencia">Transparencia</a>
+            <Link href="/seguimiento">Seguimiento</Link>
           </nav>
 
           <div className="landing-header-actions">
@@ -225,6 +226,7 @@ export default function LandingPage() {
 
           <nav className="landing-footer-links" aria-label="Enlaces del pie">
             <a href="#ayudas">Tipos de ayuda</a>
+            <Link href="/seguimiento">Seguimiento</Link>
             <Link href="/login">Acceso municipal</Link>
           </nav>
 
