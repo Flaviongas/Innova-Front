@@ -4,10 +4,9 @@ import {
   ArrowLeft,
   CheckCircle2,
   Landmark,
-  LockKeyhole,
 } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
-import { MACROSECTORS } from "@/lib/data";
+import { LoginTerritories } from "@/components/login-territories";
 
 export const metadata: Metadata = {
   title: "Ingresar · Ayudas y Emergencias",
@@ -19,31 +18,7 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <aside className="login-visual">
-        <svg
-          className="login-map"
-          viewBox="0 0 1200 800"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden="true"
-        >
-          {MACROSECTORS.map((sector) => (
-            <path
-              key={sector.id}
-              d={sector.path}
-              className={
-                sector.id === "MS-04"
-                  ? "login-map__territory login-map__territory--active"
-                  : "login-map__territory"
-              }
-            />
-          ))}
-          <path
-            className="login-map__river"
-            d="M -20 710 C 160 680, 280 750, 460 720 S 720 640, 940 690 S 1130 760, 1220 740"
-          />
-          <circle cx="760" cy="340" r="20" className="login-map__marker" />
-          <circle cx="410" cy="320" r="14" className="login-map__marker" />
-          <circle cx="850" cy="680" r="14" className="login-map__marker" />
-        </svg>
+        <LoginTerritories />
 
         <div className="login-visual-content">
           <Link className="login-brand" href="/" aria-label="Volver al inicio">
@@ -57,10 +32,10 @@ export default function LoginPage() {
           </Link>
 
           <div className="login-visual-main">
-            <span className="login-kicker">
-              <span className="live-dot" />
-              Acceso institucional
-            </span>
+            <div className="login-file-head">
+              <span>Expediente de acceso</span>
+              <span className="login-stamp">Uso interno</span>
+            </div>
             <h1>Panel de Ayudas y Emergencias.</h1>
             <p>
               Gestiona casos, entregas y reportes territoriales con trazabilidad
@@ -85,7 +60,7 @@ export default function LoginPage() {
 
           <div className="login-visual-foot">
             <span>Municipalidad de Temuco</span>
-            <span>Uso interno · Datos protegidos</span>
+            <span>Uso interno, datos protegidos</span>
           </div>
         </div>
       </aside>
@@ -100,10 +75,6 @@ export default function LoginPage() {
 
         <div className="login-card-wrap">
           <div className="login-card">
-            <span className="login-pill">
-              <LockKeyhole size={12} />
-              Acceso institucional
-            </span>
             <h2>Ingresar</h2>
             <p>Usa tu cuenta institucional para acceder al panel operativo.</p>
 

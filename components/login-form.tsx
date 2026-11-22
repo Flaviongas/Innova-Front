@@ -85,7 +85,6 @@ export function LoginForm() {
 
       <Link className="login-demo" href="/panel">
         Entrar en modo demostración
-        <ArrowRight size={14} />
       </Link>
 
       <div className="login-note">

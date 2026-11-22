@@ -39,13 +39,14 @@ npm start
 - Operational alerts for pending regularization, stock minimums, and observed documents.
 - Map/satellite mode, zoom, fullscreen, layer notice, locate, collapsible panels, and a responsive inspector.
 - New-case modal, notification popover, account menu, and action toasts.
+- GPS capture in the Nuevo caso form via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission). On submit with coordinates, the map flies to the exact point.
 - Desktop, tablet, and mobile layouts. On mobile the inspector becomes a bottom sheet and the map is cropped around the selected territory.
 
 ## Notes
 
 - All case, person, and territory data is synthetic and for interface prototyping only.
 - Forms, filters, and actions are local UI interactions; there is no backend or persistence yet.
-- The map is a hand-built SVG reference, not a GIS layer. It is labeled as referential and should be replaced with the municipal street master and official boundaries when those integrations are validated.
+- Territorial boundaries are the official municipal polygons, vendored at `public/data/macrosectores.geojson` (Servicio de Macrosectores, IDE Temuco; public query and download, attribution required). Per-sector case counts remain synthetic. The rural entry has no published geometry yet and is list-only until the municipality confirms it.
 - Workflow rules that are not confirmed in the source document are not hard-coded in this frontpage. The prototype intentionally keeps the UI flexible.
 - The project uses Next.js 16, React 19, TypeScript, and Lucide icons.
 

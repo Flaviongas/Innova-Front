@@ -623,7 +623,7 @@ Tables are the primary workspace for case queues, stock, documents, and reports.
 
 ### 6.6 Badges and status indicators
 
-Use badges for compact metadata and statuses. Always include a text label; never rely on color alone.
+Use stamped outline tags for compact metadata and statuses: transparent surface, 1px outline in the tone color, sentence-case text label. Never use filled pastel pills, and never rely on color alone — the label carries the meaning.
 
 | Status | Badge tone |
 | --- | --- |
@@ -726,8 +726,9 @@ This is a core domain component, not a generic select.
 
 **Hierarchy:**
 
-- Macrosector: 10 urban + 1 rural. This is the primary unit because residents recognize it better than the unidad vecinal.
+- Macrosector: 10 official polygons (Labranza, Botrolhue, Poniente, Amanecer, Centro, Costanera del Cautín, Pueblo Nuevo, Pedro de Valdivia, Ñielol, El Carmen), vendored from the municipal open-data service. This is the primary unit because residents recognize it better than the unidad vecinal.
 - Unidad vecinal: 32 urban + 4 rural.
+- Sector rural operativo: the interview describes a rural macrosector, but the published service contains only the 10 named above. The app keeps a rural entry without official geometry until the municipality confirms it.
 - Comunidad rural: when the rural macrosector is selected. The source suggests communities may represent the territory better; confirm whether this is the usual working unit.
 
 **Address matcher:**
@@ -850,7 +851,7 @@ Individual case markers are available only to authorized operational roles.
 
 | Layer | Purpose |
 | --- | --- |
-| Macrosectores | Primary territorial analysis; 10 urban + 1 rural |
+| Macrosectores | Primary territorial analysis; 10 official municipal polygons (vendored GeoJSON) |
 | Unidades vecinales | Secondary detail; 32 urban + 4 rural |
 | Comunidades rurales | Rural representation, when confirmed |
 | Casos (authorized) | Operational location view |
@@ -995,6 +996,7 @@ Do not turn the Panel into a chart gallery. Charts belong in Territorio and Repo
 - Record event type as context, not as an automatic aid rule.
 - Record urgency.
 - Record address and territory, with confidence.
+- When the case is registered in the field, capture the device GPS location alongside the written address. The written address stays mandatory: GPS precision varies and does not replace the territorial reference.
 - Add attachments and notes.
 - If an organization submits a list, use batch intake to create individual cases. The list is not pre-approved.
 - Save as draft or create the case.
@@ -1437,7 +1439,7 @@ Target WCAG 2.2 AA.
 
 ### 12.1 Icons
 
-Recommended library: **Lucide**. Use consistent stroke-based icons.
+Recommended library: **Lucide**. Use consistent stroke-based icons, rendered inline at text size in the surrounding text color. Do not place icons in tinted containers or colored squares; iconography accompanies text, it does not decorate cards. Category color belongs only in data representations (bars, map markers, ledger edges), never in icon backgrounds.
 
 | Property | Standard |
 | --- | --- |
@@ -1822,7 +1824,7 @@ The design must also preserve two domain-specific qualities:
 | **Decreto municipal** | The municipal instrument that authorizes an aid, as described in the source. |
 | **Informe social** | The professional social report supporting the evaluation and aid. |
 | **Acta de entrega** | The delivery record signed by the beneficiary or an authorized signer. |
-| **Macrosector** | The primary territorial unit used by the municipality: 10 urban + 1 rural in Temuco. |
+| **Macrosector** | The primary territorial unit used by the municipality: 10 official polygons (see hierarchy), plus a rural operational entry without published geometry yet. |
 | **Necesidad manifiesta** | The assessed need described by the professional after the visit. |
 | **Regularización** | The later completion of paperwork after an urgent material delivery. |
 | **Rendición** | The municipal accountability report for aids and expenses. Its official format and approval flow are to confirm. |

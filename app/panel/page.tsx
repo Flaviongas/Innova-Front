@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
-  ArrowUpRight,
   Bell,
   CheckCircle2,
   ChevronDown,
@@ -52,12 +51,7 @@ const QUICK_ACTIONS = [
 ];
 
 function StatusBadge({ tone, children }: { tone: CaseStatusTone; children: ReactNode }) {
-  return (
-    <span className={`status status--${tone}`}>
-      <span className="status-dot" />
-      {children}
-    </span>
-  );
+  return <span className={`status status--${tone}`}>{children}</span>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -155,13 +149,67 @@ function AlertGlyph({ icon }: { icon: string }) {
   return <ClipboardList size={13} />;
 }
 
+type CaseCoords = { lat: number; lng: number; accuracy: number };
+
+type NewCasePayload = {
+  person: string;
+  sectorId: string;
+  urgency: "Normal" | "Urgente";
+  coords?: CaseCoords;
+};
+
 type NewCaseModalProps = {
   sectorId: string;
   onClose: () => void;
-  onCreate: (payload: { person: string; sectorId: string; urgency: "Normal" | "Urgente" }) => void;
+  onCreate: (payload: NewCasePayload) => void;
 };
 
+type GpsState =
+  | { status: "idle" }
+  | { status: "locating" }
+  | { status: "ready"; lat: number; lng: number; accuracy: number }
+  | { status: "error"; message: string };
+
+function gpsErrorMessage(error: GeolocationPositionError): string {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return "Permiso de ubicación denegado. Actívalo en el navegador para usar el GPS.";
+    case error.POSITION_UNAVAILABLE:
+      return "No se pudo obtener la ubicación. Revisa que el GPS esté activado.";
+    case error.TIMEOUT:
+      return "Se agotó el tiempo esperando la ubicación. Intenta de nuevo.";
+    default:
+      return "No se pudo obtener la ubicación.";
+  }
+}
+
 function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
+  const [gps, setGps] = useState<GpsState>({ status: "idle" });
+
+  function requestGps() {
+    if (!("geolocation" in navigator)) {
+      setGps({
+        status: "error",
+        message: "Este navegador no soporta geolocalización.",
+      });
+      return;
+    }
+
+    setGps({ status: "locating" });
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGps({
+          status: "ready",
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
+      },
+      (error) => setGps({ status: "error", message: gpsErrorMessage(error) }),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -171,7 +219,15 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
 
     if (!person) return;
 
-    onCreate({ person, sectorId: sector, urgency });
+    onCreate({
+      person,
+      sectorId: sector,
+      urgency,
+      coords:
+        gps.status === "ready"
+          ? { lat: gps.lat, lng: gps.lng, accuracy: gps.accuracy }
+          : undefined,
+    });
   }
 
   return (
@@ -223,6 +279,30 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
             </label>
 
             <label className="field">
+              <span>Origen</span>
+              <select name="origin" defaultValue="Demanda espontánea">
+                <option value="Demanda espontánea">Demanda espontánea</option>
+                <option value="Bomberos">Bomberos</option>
+                <option value="Dirección de Riesgos y Desastres">
+                  Dirección de Riesgos y Desastres
+                </option>
+                <option value="SENAPRED">SENAPRED</option>
+                <option value="Otra institución">Otra institución</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Canal</span>
+              <select name="channel" defaultValue="Presencial">
+                <option value="Presencial">Presencial</option>
+                <option value="Teléfono">Teléfono</option>
+                <option value="Correo electrónico">Correo electrónico</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </label>
+
+            <label className="field">
               <span>Territorio</span>
               <select name="sector" defaultValue={sectorId}>
                 {MACROSECTORS.map((sector) => (
@@ -240,6 +320,60 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
                 <option value="Urgente">Urgente</option>
               </select>
             </label>
+
+            <label className="field field--full">
+              <span>Dirección de referencia</span>
+              <input
+                name="address"
+                placeholder="Ej. Calle, número, sector o hito cercano"
+                autoComplete="off"
+              />
+            </label>
+
+            <div className="field field--full">
+              <span>Ubicación GPS</span>
+              {gps.status === "ready" ? (
+                <div className="gps-ready">
+                  <MapPin size={14} />
+                  <span>
+                    {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}{" "}
+                    <em>±{Math.round(gps.accuracy)} m</em>
+                  </span>
+                  <button
+                    className="gps-clear"
+                    type="button"
+                    onClick={() => setGps({ status: "idle" })}
+                    aria-label="Quitar ubicación GPS"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="gps-button"
+                  type="button"
+                  onClick={requestGps}
+                  disabled={gps.status === "locating"}
+                >
+                  <Crosshair size={14} />
+                  {gps.status === "locating"
+                    ? "Obteniendo ubicación…"
+                    : gps.status === "error"
+                      ? "Reintentar ubicación GPS"
+                      : "Usar mi ubicación actual"}
+                </button>
+              )}
+              {gps.status === "error" && (
+                <span className="gps-error" role="alert">
+                  {gps.message}
+                </span>
+              )}
+              {gps.status === "idle" && (
+                <span className="gps-hint">
+                  Requiere permiso del navegador. Funciona en HTTPS o localhost.
+                </span>
+              )}
+            </div>
 
             <label className="field field--full">
               <span>Notas de ingreso</span>
@@ -274,7 +408,7 @@ function NewCaseModal({ sectorId, onClose, onCreate }: NewCaseModalProps) {
 }
 
 export default function HomePage() {
-  const [selectedId, setSelectedId] = useState("MS-04");
+  const [selectedId, setSelectedId] = useState("centro");
   const [cases, setCases] = useState<RecentCase[]>(RECENT_CASES);
   const [mapMode, setMapMode] = useState<"map" | "satellite">("map");
   const mapRef = useRef<L.Map | null>(null);
@@ -406,6 +540,7 @@ export default function HomePage() {
     person: string;
     sectorId: string;
     urgency: "Normal" | "Urgente";
+    coords?: { lat: number; lng: number; accuracy: number };
   }) {
     const folio = `AY-2026-${String(483 + cases.length).padStart(6, "0")}`;
     const nextCase: RecentCase = {
@@ -424,7 +559,15 @@ export default function HomePage() {
     setNewCaseOpen(false);
     setSubmittedSearch("");
     setSearch("");
-    showToast(`Caso ${folio} creado como borrador.`);
+
+    if (payload.coords) {
+      mapRef.current?.flyTo([payload.coords.lat, payload.coords.lng], 16, {
+        duration: 0.8,
+      });
+      showToast(`Caso ${folio} creado con ubicación GPS.`);
+    } else {
+      showToast(`Caso ${folio} creado como borrador.`);
+    }
   }
 
   function togglePanel(id: string) {
@@ -456,7 +599,7 @@ export default function HomePage() {
   }
 
   function handleLocate() {
-    setSelectedId("MS-04");
+    setSelectedId("centro");
     mapRef.current?.flyTo([-38.7359, -72.5904], 13, { duration: 0.8 });
     showToast("Vista centrada en Temuco.");
   }
@@ -607,7 +750,7 @@ export default function HomePage() {
                     <span className="avatar avatar--large">MC</span>
                     <div>
                       <strong>María Contreras</strong>
-                      <span>Profesional social · MS-04</span>
+                      <span>Profesional social, Centro</span>
                     </div>
                   </div>
 
@@ -746,8 +889,8 @@ export default function HomePage() {
               </div>
               <span className="legend-note">
                 {mapMode === "satellite"
-                  ? "Esri World Imagery · Temuco"
-                  : "© OpenStreetMap · © CARTO · Temuco"}
+                  ? "Esri World Imagery, límites: Municipalidad de Temuco"
+                  : "© OpenStreetMap, © CARTO, límites: Municipalidad de Temuco"}
               </span>
             </div>
 
@@ -829,7 +972,7 @@ export default function HomePage() {
                       <span className="territory-type">{selected.type}</span>
                     </div>
                     <p>
-                      {selected.cases} casos activos ·{" "}
+                      {selected.cases} casos activos,{" "}
                       {selected.attentions.toLocaleString("es-CL")} atenciones
                     </p>
                   </div>
@@ -868,7 +1011,6 @@ export default function HomePage() {
                     onClick={() => showToast("Análisis territorial en preparación.")}
                   >
                     Ver análisis territorial
-                    <ArrowUpRight size={13} />
                   </button>
                 </Panel>
 
@@ -922,7 +1064,7 @@ export default function HomePage() {
                             </span>
                             <span className="case-person">{item.person}</span>
                             <span className="case-meta">
-                              {item.aidType} · {getMacrosector(item.sectorId).shortLabel}
+                              {item.aidType}, {getMacrosector(item.sectorId).shortLabel}
                             </span>
                           </span>
                           <StatusBadge tone={item.tone}>{item.status}</StatusBadge>
@@ -956,7 +1098,6 @@ export default function HomePage() {
                           <span className="alert-detail">{alert.detail}</span>
                         </span>
                         <span className="alert-count">{alert.count}</span>
-                        <ArrowUpRight size={12} className="alert-arrow" />
                       </button>
                     ))}
                   </div>
