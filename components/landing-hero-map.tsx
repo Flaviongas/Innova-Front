@@ -10,7 +10,7 @@ import {
 } from "@/lib/macrosectores";
 
 export function LandingHeroMap() {
-  const [selectedId, setSelectedId] = useState("centro");
+  const [selectedId, setSelectedId] = useState("el-carmen");
   const [collection, setCollection] =
     useState<MacrosectorCollection | null>(null);
 

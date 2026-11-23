@@ -9,7 +9,7 @@ The backend contract is documented separately with the backend
 ## Routes
 
 - `/` — Public landing page (hero, aid types, transparency).
-- `/seguimiento` — Public code lookup, no login required.
+- `/seguimiento` — Public code lookup (state tracker, case facts, deliveries and a read-only map with the macrosector highlighted), no login required.
 - `/login` — Institutional login and account creation (backend auth).
 - `/panel` — Full-screen operations dashboard (map workspace + inspector, admin only).
 - `/panel?vista=casos` — Deep link to the full cases queue inside the panel.
@@ -78,7 +78,8 @@ npm start
 - Territory inspector with live event counts, in-process counts, delivered units, and help-type mix per macrosector.
 - Operational alerts derived from live data (low stock, unattended recibido cases) in the notification popover.
 - Bodega modal: stock list with low-stock flags. “Registrar compra” and “Nuevo artículo” open as nested modals from two buttons.
-- Location capture in the Nuevo caso form: GPS via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission) or manual latitude/longitude entry. The edit form accepts manual coordinates too. On submit the map flies to the exact point.
+- Location capture in the Nuevo caso form: GPS via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission) or manual latitude/longitude entry, with two-way address lookup (address → coordinates and back, via OpenStreetMap Nominatim). The edit form accepts manual coordinates too. On submit the map flies to the exact point.
+- Interactive map (Leaflet): drag to pan, scroll to zoom, click an official macrosector polygon to select it; map/satellite toggle, zoom buttons, recenter, and fullscreen. Choropleth colors map each exact count (0, 1, 2, 3, 4, 5+) to a distinct blue, each sector shows its count as a map label at the centroid, and every emergency renders as a point at its exact coordinates (colored by category — red incendio, orange terremoto, blue inundación, green temporal, gray otro; click to open).
 - Desktop, tablet, and mobile layouts. On mobile the inspector becomes a bottom sheet.
 
 ## Notes
@@ -110,6 +111,7 @@ components/
   login-territories.tsx  Real-polygon backdrop for login
 lib/
   api.ts             Typed Innova-Back client (NEXT_PUBLIC_API_URL)
+  geocode.ts         Browser address lookup via Nominatim (OSM, no key)
   data.ts          Sector reference data (labels, colors)
   macrosectores.ts   GeoJSON loader, official-name join, centroids
   map-focus.ts       Safe recenter: instant zoom, animated pan only

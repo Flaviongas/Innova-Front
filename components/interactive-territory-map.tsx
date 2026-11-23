@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { getMacrosector, territoryFill } from "@/lib/data";
+import { getMacrosector, categoryFill, territoryFill } from "@/lib/data";
 import { focusMap } from "@/lib/map-focus";
 import {
   OFFICIAL_TO_ID,
@@ -103,7 +103,39 @@ type InteractiveTerritoryMapProps = {
   /** Show case counts in tooltips and use the choropleth fill. False for public views. */
   showCounts?: boolean;
   choropleth?: boolean;
+  /** Individual emergencies rendered as points at their coordinates. */
+  cases?: CaseMarker[];
+  onCaseSelect?: (id: number) => void;
+  /** Center the camera on an exact point (e.g. the looked-up case). */
+  focusPoint?: [number, number];
+  focusZoom?: number;
+  /** Change this key to recenter on `focusPoint` again. */
+  focusKey?: string;
+  /** Disable polygon selection and hover tooltips (public read-only views). */
+  readOnly?: boolean;
 };
+
+export type CaseMarker = {
+  id: number;
+  latitude: number;
+  longitude: number;
+  code: string;
+  title: string;
+  categoryLabel: string;
+  category: string;
+};
+
+/** Fill for a case point: one hue per emergency category. */
+function caseColor(category: string): string {
+  return categoryFill(category);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 
 function featureName(feature: GeoJSON.Feature): string | undefined {
   const raw = (feature as { properties?: { macrosect?: unknown } })
@@ -134,12 +166,12 @@ function polygonStyle(
 
   return {
     color: cssVar("--color-primary", "#3574B5"),
-    weight: selected ? 2.5 : 1.2,
-    opacity: selected ? 0.9 : 0.45,
+    weight: selected ? 3 : 1.2,
+    opacity: selected ? 1 : 0.45,
     fillColor: choropleth
       ? territoryFill(cases)
       : cssVar("--color-primary-light", "#D9EDFA"),
-    fillOpacity: selected ? 0.6 : 0.42,
+    fillOpacity: selected ? 0.72 : 0.42,
   };
 }
 
@@ -191,16 +223,29 @@ export function InteractiveTerritoryMap({
   counts,
   showCounts = true,
   choropleth = true,
+  cases,
+  onCaseSelect,
+  focusPoint,
+  focusZoom = 14,
+  focusKey,
+  readOnly = false,
 }: InteractiveTerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof L | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileRef = useRef<L.TileLayer | null>(null);
   const geoLayerRef = useRef<L.GeoJSON | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
   const centroidsRef = useRef<Map<string, [number, number]>>(new Map());
   const labelPointsRef = useRef<Map<string, [number, number]>>(new Map());
   const countMarkersRef = useRef<Map<string, L.Marker>>(new Map());
   const syncCountsRef = useRef<() => void>(() => {});
+  const casesRef = useRef(cases);
+  const onCaseSelectRef = useRef(onCaseSelect);
+  const syncMarkersRef = useRef<() => void>(() => {});
+  const focusPointRef = useRef(focusPoint);
+  const focusZoomRef = useRef(focusZoom);
+  const readOnlyRef = useRef(readOnly);
   const onSelectRef = useRef(onSelect);
   const onMapReadyRef = useRef(onMapReady);
   const selectedRef = useRef(selectedId);
@@ -219,6 +264,11 @@ export function InteractiveTerritoryMap({
   countsRef.current = counts;
   showCountsRef.current = showCounts;
   choroplethRef.current = choropleth;
+  casesRef.current = cases;
+  onCaseSelectRef.current = onCaseSelect;
+  focusPointRef.current = focusPoint;
+  focusZoomRef.current = focusZoom;
+  readOnlyRef.current = readOnly;
 
   // Create the map once, loading Leaflet only in the browser.
   useEffect(() => {
@@ -239,6 +289,7 @@ export function InteractiveTerritoryMap({
           scrollWheelZoom: scrollRef.current,
         });
         mapRef.current = map;
+        markersRef.current = leaflet.layerGroup().addTo(map);
 
         // Count badges are only useful while the sectors are large enough on
         // screen; hide them when zoomed far out.
@@ -270,6 +321,7 @@ export function InteractiveTerritoryMap({
           const layer = leaflet.geoJSON(
             collection as unknown as GeoJSON.GeoJsonObject,
             {
+              interactive: !readOnlyRef.current,
               style: (feature) =>
                 polygonStyle(
                   feature ? featureName(feature) : undefined,
@@ -287,6 +339,7 @@ export function InteractiveTerritoryMap({
                 ).coordinates;
                 centroidsRef.current.set(id, polygonCenter(coordinates));
                 labelPointsRef.current.set(id, polygonLabelPoint(coordinates));
+                if (readOnlyRef.current) return;
                 sublayer.bindTooltip(
                   tooltipFor(id, countsRef.current, showCountsRef.current),
                   { sticky: true, opacity: 1 },
@@ -307,6 +360,18 @@ export function InteractiveTerritoryMap({
           geoLayerRef.current = layer;
           applySelection(selectedRef.current);
           syncCountMarkers();
+
+          // The selection effect may have run before the async init finished;
+          // center the initial view now that centroids exist.
+          const exact = focusPointRef.current;
+          if (exact) {
+            focusMap(map, exact, Math.max(map.getZoom(), focusZoomRef.current));
+          } else {
+            const initial = centroidsRef.current.get(selectedRef.current);
+            if (initial) {
+              focusMap(map, initial, Math.max(map.getZoom(), 13));
+            }
+          }
         } catch {
           if (!cancelled) {
             setStatus(
@@ -316,6 +381,7 @@ export function InteractiveTerritoryMap({
         }
 
         onMapReadyRef.current?.(map);
+        syncMarkers();
         setStatus("listo");
       } catch (error) {
         setStatus(
@@ -388,7 +454,35 @@ export function InteractiveTerritoryMap({
       }
     }
 
-    syncCountsRef.current = syncCountMarkers;
+    function syncMarkers() {
+      const leaflet = leafletRef.current;
+      const group = markersRef.current;
+      if (!leaflet || !group) return;
+      group.clearLayers();
+      for (const item of casesRef.current ?? []) {
+        if (!Number.isFinite(item.latitude) || !Number.isFinite(item.longitude)) {
+          continue;
+        }
+        const marker = leaflet.circleMarker([item.latitude, item.longitude], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 2,
+          fillColor: caseColor(item.category),
+          fillOpacity: 1,
+        });
+        marker.bindTooltip(
+          `<strong>${escapeHtml(item.code)}</strong><br/>${escapeHtml(item.title)} · ${escapeHtml(item.categoryLabel)}`,
+          { direction: "top", offset: [0, -8], opacity: 1 },
+        );
+        marker.on("click", (event) => {
+          leaflet.DomEvent.stopPropagation(event);
+          onCaseSelectRef.current?.(item.id);
+        });
+        marker.addTo(group);
+      }
+    }
+
+    syncMarkersRef.current = syncMarkers;
     init();
 
     return () => {
@@ -396,6 +490,7 @@ export function InteractiveTerritoryMap({
       mapRef.current?.remove();
       mapRef.current = null;
       geoLayerRef.current = null;
+      markersRef.current = null;
       centroidsRef.current.clear();
       labelPointsRef.current.clear();
       countMarkersRef.current.clear();
@@ -437,13 +532,19 @@ export function InteractiveTerritoryMap({
       choroplethRef.current,
     );
 
+    const exact = focusPointRef.current;
+    if (exact) {
+      focusMap(map, exact, Math.max(map.getZoom(), focusZoomRef.current));
+      return;
+    }
+
     const coords = centroidsRef.current.get(selectedId);
     focusMap(
       map,
       coords ?? TEMUCO_CENTER,
       Math.max(map.getZoom(), coords ? 13 : 12),
     );
-  }, [selectedId]);
+  }, [selectedId, focusKey]);
 
   // Refresh fills, tooltips and count badges when data or mode changes.
   useEffect(() => {
@@ -459,6 +560,12 @@ export function InteractiveTerritoryMap({
     }
     syncCountsRef.current();
   }, [counts, showCounts, choropleth]);
+
+  // Render one point per emergency at its exact coordinates. Colors follow
+  // the status palette so the point reads the same as its stamp.
+  useEffect(() => {
+    syncMarkersRef.current();
+  }, [cases]);
 
   return (
     <div className="interactive-map-wrap">

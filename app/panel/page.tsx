@@ -28,7 +28,7 @@ import type L from "leaflet";
 import { CasosView } from "@/components/casos-view";
 import { InteractiveTerritoryMap } from "@/components/interactive-territory-map";
 import { StatusBadge } from "@/components/status-badge";
-import { MACROSECTORS, getMacrosector, type AidSlice } from "@/lib/data";
+import { MACROSECTORS, categoryFill, getMacrosector, type AidSlice } from "@/lib/data";
 import { focusMap } from "@/lib/map-focus";
 import {
   ApiError,
@@ -219,14 +219,62 @@ function gpsErrorMessage(error: GeolocationPositionError): string {
   }
 }
 
+import { forwardGeocode, reverseGeocode } from "@/lib/geocode";
+
 function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
   const [gps, setGps] = useState<GpsState>({ status: "idle" });
   const [locationMode, setLocationMode] = useState<"gps" | "manual">("gps");
+  const [address, setAddress] = useState("");
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
   const [located, setLocated] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [geoStatus, setGeoStatus] = useState<string | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
+
+  async function geocodeAddress() {
+    if (address.trim().length < 3 || geoBusy) return;
+    setGeoBusy(true);
+    setGeoStatus("Buscando coordenadas…");
+    setSubmitError(null);
+    try {
+      const result = await forwardGeocode(address.trim());
+      setManualLat(String(result.latitude));
+      setManualLng(String(result.longitude));
+      setLocationMode("manual");
+      setGeoStatus(`Coordenadas encontradas: ${result.label}`);
+    } catch (err) {
+      setGeoStatus(err instanceof Error ? err.message : "No se pudo geocodificar.");
+    } finally {
+      setGeoBusy(false);
+    }
+  }
+
+  async function geocodeCoords() {
+    const latitude = Number(manualLat);
+    const longitude = Number(manualLng);
+    if (
+      manualLat.trim() === "" ||
+      manualLng.trim() === "" ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      geoBusy
+    ) {
+      return;
+    }
+    setGeoBusy(true);
+    setGeoStatus("Buscando dirección…");
+    setSubmitError(null);
+    try {
+      setAddress(await reverseGeocode(latitude, longitude));
+      setGeoStatus("Dirección encontrada.");
+    } catch (err) {
+      setGeoStatus(err instanceof Error ? err.message : "No se pudo geocodificar.");
+    } finally {
+      setGeoBusy(false);
+    }
+  }
 
   function requestGps() {
     if (!("geolocation" in navigator)) {
@@ -272,7 +320,7 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
 
     const data = new FormData(event.currentTarget);
     const title = String(data.get("title") ?? "").trim();
-    const address = String(data.get("address") ?? "").trim();
+    const trimmedAddress = address.trim();
     const category = String(data.get("category") ?? "otro") as EmergencyCategory;
     const helpType = String(data.get("help_type") ?? "otro") as EmergencyHelpType;
     const state = String(data.get("state") ?? "recibida") as Emergency["state"];
@@ -281,7 +329,7 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
       setSubmitError("El título debe tener al menos 3 caracteres.");
       return;
     }
-    if (address.length < 3) {
+    if (trimmedAddress.length < 3) {
       setSubmitError("La dirección debe tener al menos 3 caracteres.");
       return;
     }
@@ -325,7 +373,7 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
         category,
         help_type: helpType,
         title,
-        address,
+        address: trimmedAddress,
         latitude,
         longitude,
         state,
@@ -413,7 +461,20 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
                 placeholder="Ej. Prat 123, Temuco"
                 required
                 autoComplete="off"
+                value={address}
+                onChange={(event) => {
+                  setAddress(event.target.value);
+                  setSubmitError(null);
+                }}
               />
+              <button
+                className="geocode-button"
+                type="button"
+                onClick={() => void geocodeAddress()}
+                disabled={geoBusy || address.trim().length < 3}
+              >
+                {geoBusy ? "Buscando…" : "Obtener coordenadas de esta dirección"}
+              </button>
             </label>
 
             <div className="field field--full">
@@ -526,11 +587,21 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
                       />
                     </label>
                   </div>
+                  <button
+                    className="geocode-button"
+                    type="button"
+                    onClick={() => void geocodeCoords()}
+                    disabled={geoBusy}
+                  >
+                    {geoBusy ? "Buscando…" : "Obtener dirección de estas coordenadas"}
+                  </button>
                   <span className="gps-hint">
                     El servidor asignará el macrosector según estas coordenadas.
+                    Búsqueda: © OpenStreetMap.
                   </span>
                 </>
               )}
+              {geoStatus && <span className="gps-located">{geoStatus}</span>}
             </div>
 
             <label className="field field--full">
@@ -598,6 +669,50 @@ function EmergencyDrawer({
   const [editing, setEditing] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  const [editGeoStatus, setEditGeoStatus] = useState<string | null>(null);
+  const [editGeoBusy, setEditGeoBusy] = useState(false);
+  const editAddressRef = useRef<HTMLInputElement>(null);
+  const editLatRef = useRef<HTMLInputElement>(null);
+  const editLngRef = useRef<HTMLInputElement>(null);
+
+  async function geocodeEditAddress() {
+    const raw = editAddressRef.current?.value.trim() ?? "";
+    if (raw.length < 3 || editGeoBusy) return;
+    setEditGeoBusy(true);
+    setEditGeoStatus("Buscando coordenadas…");
+    setEditError(null);
+    try {
+      const result = await forwardGeocode(raw);
+      if (editLatRef.current) editLatRef.current.value = String(result.latitude);
+      if (editLngRef.current) editLngRef.current.value = String(result.longitude);
+      setEditGeoStatus(`Coordenadas encontradas: ${result.label}`);
+    } catch (err) {
+      setEditGeoStatus(err instanceof Error ? err.message : "No se pudo geocodificar.");
+    } finally {
+      setEditGeoBusy(false);
+    }
+  }
+
+  async function geocodeEditCoords() {
+    const latitude = Number(editLatRef.current?.value ?? "");
+    const longitude = Number(editLngRef.current?.value ?? "");
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || editGeoBusy) {
+      return;
+    }
+    setEditGeoBusy(true);
+    setEditGeoStatus("Buscando dirección…");
+    setEditError(null);
+    try {
+      if (editAddressRef.current) {
+        editAddressRef.current.value = await reverseGeocode(latitude, longitude);
+      }
+      setEditGeoStatus("Dirección encontrada.");
+    } catch (err) {
+      setEditGeoStatus(err instanceof Error ? err.message : "No se pudo geocodificar.");
+    } finally {
+      setEditGeoBusy(false);
+    }
+  }
 
   const sectorLabel = emergency.macrosector
     ? getMacrosector(emergency.macrosector).label
@@ -873,7 +988,20 @@ function EmergencyDrawer({
               </label>
               <label className="field field--full">
                 <span>Dirección</span>
-                <input name="address" defaultValue={emergency.address} required />
+                <input
+                  name="address"
+                  defaultValue={emergency.address}
+                  required
+                  ref={editAddressRef}
+                />
+                <button
+                  className="geocode-button"
+                  type="button"
+                  onClick={() => void geocodeEditAddress()}
+                  disabled={editGeoBusy}
+                >
+                  {editGeoBusy ? "Buscando…" : "Obtener coordenadas de esta dirección"}
+                </button>
               </label>
               <div className="field field--full">
                 <span>Coordenadas</span>
@@ -884,6 +1012,7 @@ function EmergencyDrawer({
                       name="latitude"
                       type="number"
                       inputMode="decimal"
+                      ref={editLatRef}
                       step="any"
                       min={-90}
                       max={90}
@@ -896,6 +1025,7 @@ function EmergencyDrawer({
                       name="longitude"
                       type="number"
                       inputMode="decimal"
+                      ref={editLngRef}
                       step="any"
                       min={-180}
                       max={180}
@@ -903,10 +1033,22 @@ function EmergencyDrawer({
                     />
                   </label>
                 </div>
+                <button
+                  className="geocode-button"
+                  type="button"
+                  onClick={() => void geocodeEditCoords()}
+                  disabled={editGeoBusy}
+                >
+                  {editGeoBusy ? "Buscando…" : "Obtener dirección de estas coordenadas"}
+                </button>
                 <span className="gps-hint">
-                  Si cambian, el servidor reasigna el macrosector.
+                  Si cambian, el servidor reasigna el macrosector. Búsqueda: ©
+                  OpenStreetMap.
                 </span>
               </div>
+              {editGeoStatus && (
+                <span className="gps-located">{editGeoStatus}</span>
+              )}
               {editError && (
                 <p className="form-error" role="alert">
                   {editError}
@@ -1600,6 +1742,11 @@ export default function HomePage() {
     setDetailCode(item.code);
   }
 
+  function handleMarkerSelect(id: number) {
+    const item = emergencies.find((entry) => entry.id === id);
+    if (item) handleCaseSelect(item);
+  }
+
   async function handleCreateCase(payload: CreateEmergencyInput) {
     const record = await api.createEmergency(payload);
     setEmergencies((current) => [record, ...current]);
@@ -1914,6 +2061,16 @@ export default function HomePage() {
                 mapMode={mapMode}
                 onMapReady={handleMapReady}
                 counts={caseCounts}
+                cases={emergencies.map((item) => ({
+                  id: item.id,
+                  latitude: item.latitude,
+                  longitude: item.longitude,
+                  code: item.code,
+                  title: item.title,
+                  category: item.category,
+                  categoryLabel: categoryLabel(item.category),
+                }))}
+                onCaseSelect={handleMarkerSelect}
               />
             </div>
 
@@ -1981,7 +2138,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="map-legend" aria-label="Leyenda de casos registrados">
+            <div className="map-legend" aria-label="Leyenda del mapa">
               <div className="legend-head">
                 <span>Casos registrados</span>
                 <span>Total</span>
@@ -1994,6 +2151,17 @@ export default function HomePage() {
                 <span>3</span>
                 <span>4</span>
                 <span>5+</span>
+              </div>
+              <div className="legend-categories" aria-label="Categorías de emergencias">
+                {CATEGORY_OPTIONS.map((option) => (
+                  <span key={option} className="legend-category">
+                    <i
+                      className="legend-dot"
+                      style={{ background: categoryFill(option) }}
+                    />
+                    {categoryLabel(option)}
+                  </span>
+                ))}
               </div>
               <span className="legend-note">
                 {mapMode === "satellite"

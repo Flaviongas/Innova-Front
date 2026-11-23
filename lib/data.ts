@@ -191,3 +191,18 @@ export function territoryFill(cases: number): string {
   const index = Math.min(Math.floor(cases), TERRITORY_FILLS.length - 1);
   return TERRITORY_FILLS[index];
 }
+
+// Point colours for individual emergencies. Each category gets its own hue
+// so an admin can eyeball the mix at a glance: red for fire, blue for flood,
+// orange for earthquake, green for storm, gray for the rest.
+const CATEGORY_FILLS: Record<string, string> = {
+  incendio: "#E42D24",
+  terremoto: "#E8711F",
+  inundacion: "#4B9FD4",
+  temporal: "#4DB863",
+  otro: "#8B8E8D",
+};
+
+export function categoryFill(category: string): string {
+  return CATEGORY_FILLS[category] ?? CATEGORY_FILLS.otro;
+}

@@ -284,6 +284,16 @@ Use category colors for aid types. Use the territorial scale for map intensity a
 | 4 | `#3574B5` |
 | 5+ | `#1D4F7A` |
 
+**Emergency points** — each case renders as a dot at its exact coordinates, coloured by category so the mix is readable at a glance. Mirrored by `categoryFill()` in `lib/data.ts` and explained in the map legend:
+
+| Category | Color |
+| --- | --- |
+| Incendio | `#E42D24` (red, fire) |
+| Terremoto | `#E8711F` (orange, earth) |
+| Inundación | `#4B9FD4` (blue, water) |
+| Temporal | `#4DB863` (green, storm) |
+| Otro | `#8B8E8D` (gray) |
+
 Each macrosector also shows its current count as a bold map label at its widest interior point, with a white halo so it stays legible over streets and fills. Labels are hidden below zoom 12 so they do not crowd the map when zoomed out.
 
 **Chart rules:**
