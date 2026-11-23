@@ -25,7 +25,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type L from "leaflet";
-import { AyudasView } from "@/components/ayudas-view";
 import { CasosView } from "@/components/casos-view";
 import { InteractiveTerritoryMap } from "@/components/interactive-territory-map";
 import { StatusBadge } from "@/components/status-badge";
@@ -51,7 +50,7 @@ import {
   type User,
 } from "@/lib/api";
 
-const NAV_ITEMS = ["Panel", "Casos", "Ayudas", "Bodega"];
+const NAV_ITEMS = ["Panel", "Casos", "Bodega"];
 
 const CATEGORY_OPTIONS: EmergencyCategory[] = [
   "incendio",
@@ -153,7 +152,15 @@ function Panel({ id, icon, title, badge, action, collapsed, onToggle, children }
   );
 }
 
-function EmptyCases({ query, onClear }: { query: string; onClear: () => void }) {
+function EmptyCases({
+  query,
+  sector,
+  onClear,
+}: {
+  query: string;
+  sector: string;
+  onClear: () => void;
+}) {
   return (
     <div className="empty-cases">
       <span className="empty-icon">
@@ -162,8 +169,8 @@ function EmptyCases({ query, onClear }: { query: string; onClear: () => void }) 
       <strong>Sin resultados</strong>
       <p>
         {query
-          ? `No encontramos casos para “${query}”.`
-          : "No hay casos recientes para mostrar."}
+          ? `No encontramos casos para “${query}” en ${sector}.`
+          : `No hay casos en ${sector}.`}
       </p>
       <button className="text-link" type="button" onClick={onClear}>
         Limpiar búsqueda
@@ -942,6 +949,30 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
   const [purchaseQty, setPurchaseQty] = useState("10");
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [itemOpen, setItemOpen] = useState(false);
+
+  function openPurchase() {
+    setPurchaseError(null);
+    setPurchaseOpen(true);
+  }
+
+  function openItemForm() {
+    setItemError(null);
+    setItemOpen(true);
+  }
+
+  useEffect(() => {
+    if (!purchaseOpen && !itemOpen) return;
+    function handleNestedKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setPurchaseOpen(false);
+      setItemOpen(false);
+    }
+    window.addEventListener("keydown", handleNestedKey, true);
+    return () => window.removeEventListener("keydown", handleNestedKey, true);
+  }, [purchaseOpen, itemOpen]);
 
   async function submitItem(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -970,6 +1001,7 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
         threshold,
       });
       event.currentTarget.reset();
+      setItemOpen(false);
     } catch (err) {
       setItemError(err instanceof ApiError ? err.message : "No se pudo crear el artículo.");
     }
@@ -988,6 +1020,7 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
     try {
       await onPurchase(itemId, quantity);
       setPurchaseQty("10");
+      setPurchaseOpen(false);
     } catch (err) {
       setPurchaseError(err instanceof ApiError ? err.message : "No se pudo registrar la compra.");
     } finally {
@@ -1043,105 +1076,192 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
           </ul>
         )}
 
-        <div className="drawer-section">
-          <div className="drawer-section-head">
-            <h3>Registrar compra</h3>
-          </div>
-          <form className="drawer-form" onSubmit={submitPurchase}>
-            <label className="field">
-              <span>Artículo</span>
-              <select
-                value={purchaseItem}
-                onChange={(event) => setPurchaseItem(event.target.value)}
-                required
-              >
-                <option value="">Seleccionar…</option>
-                {activeItems.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="field">
-              <span>Cantidad</span>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={purchaseQty}
-                onChange={(event) => setPurchaseQty(event.target.value)}
-                required
-              />
-            </label>
-            <button
-              className="button button--secondary"
-              type="submit"
-              disabled={purchaseBusy}
-            >
-              {purchaseBusy ? "Registrando…" : "Sumar stock"}
-            </button>
-          </form>
-          {purchaseError && (
-            <p className="form-error" role="alert">
-              {purchaseError}
-            </p>
-          )}
+        <div className="stock-actions">
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={openPurchase}
+          >
+            Registrar compra
+          </button>
+          <button
+            className="button button--primary"
+            type="button"
+            onClick={openItemForm}
+          >
+            Nuevo artículo
+          </button>
         </div>
+      </div>
 
-        <div className="drawer-section">
-          <div className="drawer-section-head">
-            <h3>Nuevo artículo</h3>
-          </div>
-          <form className="case-form" onSubmit={submitItem}>
-            <div className="form-grid">
-              <label className="field field--full">
-                <span>Nombre</span>
-                <input name="name" placeholder="Ej. Colchoneta 1 plaza" autoComplete="off" />
-              </label>
+      {purchaseOpen && (
+        <div
+          className="modal-scrim modal-scrim--nested"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPurchaseOpen(false);
+          }}
+        >
+          <div
+            className="modal modal--nested"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="purchase-title"
+          >
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Bodega</span>
+                <h2 id="purchase-title">Registrar compra</h2>
+                <p>Suma stock a un artículo existente.</p>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setPurchaseOpen(false)}
+                aria-label="Cerrar registrar compra"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <form className="drawer-form" onSubmit={submitPurchase}>
               <label className="field">
-                <span>Unidad</span>
-                <input name="unit" placeholder="unidad" defaultValue="unidad" autoComplete="off" />
-              </label>
-              <label className="field">
-                <span>Categoría</span>
-                <select name="category" defaultValue="abrigo">
-                  {STOCK_CATEGORIES.map((option) => (
-                    <option key={option} value={option}>
-                      {helpLabel(option)}
+                <span>Artículo</span>
+                <select
+                  value={purchaseItem}
+                  onChange={(event) => setPurchaseItem(event.target.value)}
+                  required
+                >
+                  <option value="">Seleccionar…</option>
+                  {activeItems.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="field">
-                <span>Stock inicial</span>
-                <input name="quantity" type="number" min={0} step={1} defaultValue={0} />
+                <span>Cantidad</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={purchaseQty}
+                  onChange={(event) => setPurchaseQty(event.target.value)}
+                  required
+                />
               </label>
-              <label className="field">
-                <span>Umbral mínimo</span>
-                <input name="threshold" type="number" min={0} step={1} defaultValue={10} />
-              </label>
-            </div>
-            {itemError && (
-              <p className="form-error" role="alert">
-                {itemError}
-              </p>
-            )}
-            <div className="modal-actions">
-              <button className="button button--primary" type="submit">
-                Crear artículo
+              {purchaseError && (
+                <p className="form-error" role="alert">
+                  {purchaseError}
+                </p>
+              )}
+              <div className="modal-actions">
+                <button
+                  className="button button--ghost"
+                  type="button"
+                  onClick={() => setPurchaseOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="button button--secondary"
+                  type="submit"
+                  disabled={purchaseBusy}
+                >
+                  {purchaseBusy ? "Registrando…" : "Sumar stock"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {itemOpen && (
+        <div
+          className="modal-scrim modal-scrim--nested"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setItemOpen(false);
+          }}
+        >
+          <div
+            className="modal modal--nested"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-item-title"
+          >
+            <div className="modal-head">
+              <div>
+                <span className="eyebrow">Bodega</span>
+                <h2 id="new-item-title">Nuevo artículo</h2>
+                <p>Crea un artículo para controlar su stock.</p>
+              </div>
+              <button
+                className="icon-button"
+                type="button"
+                onClick={() => setItemOpen(false)}
+                aria-label="Cerrar nuevo artículo"
+              >
+                <X size={16} />
               </button>
             </div>
-          </form>
+            <form className="case-form" onSubmit={submitItem}>
+              <div className="form-grid">
+                <label className="field field--full">
+                  <span>Nombre</span>
+                  <input name="name" placeholder="Ej. Colchoneta 1 plaza" autoComplete="off" />
+                </label>
+                <label className="field">
+                  <span>Unidad</span>
+                  <input name="unit" placeholder="unidad" defaultValue="unidad" autoComplete="off" />
+                </label>
+                <label className="field">
+                  <span>Categoría</span>
+                  <select name="category" defaultValue="abrigo">
+                    {STOCK_CATEGORIES.map((option) => (
+                      <option key={option} value={option}>
+                        {helpLabel(option)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Stock inicial</span>
+                  <input name="quantity" type="number" min={0} step={1} defaultValue={0} />
+                </label>
+                <label className="field">
+                  <span>Umbral mínimo</span>
+                  <input name="threshold" type="number" min={0} step={1} defaultValue={10} />
+                </label>
+              </div>
+              {itemError && (
+                <p className="form-error" role="alert">
+                  {itemError}
+                </p>
+              )}
+              <div className="modal-actions">
+                <button
+                  className="button button--ghost"
+                  type="button"
+                  onClick={() => setItemOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button className="button button--primary" type="submit">
+                  Crear artículo
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export default function HomePage() {
   const router = useRouter();
-  const [view, setView] = useState<"panel" | "casos" | "ayudas">("panel");
+  const [view, setView] = useState<"panel" | "casos">("panel");
   const [selectedId, setSelectedId] = useState("centro");
   const [user, setUser] = useState<User | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -1202,10 +1322,10 @@ export default function HomePage() {
     }
   }, []);
 
-  // Allow deep links into the operational queues, e.g. /panel?vista=casos.
+  // Allow deep links into the cases queue, e.g. /panel?vista=casos.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("vista");
-    if (requested === "casos" || requested === "ayudas") setView(requested);
+    if (requested === "casos") setView(requested);
   }, []);
 
   useEffect(() => {
@@ -1222,10 +1342,19 @@ export default function HomePage() {
         setSessionChecked(true);
         void loadEmergencies();
         void loadStock();
-      } catch {
+      } catch (err) {
         if (cancelled) return;
-        clearToken();
-        router.replace("/login");
+        // Only drop the session on auth errors. A network failure must not
+        // wipe a valid token and bounce the user to /login.
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          clearToken();
+          router.replace("/login");
+        } else {
+          setSessionChecked(true);
+          setCasesError(
+            err instanceof ApiError ? err.message : "No se pudo verificar la sesión.",
+          );
+        }
       }
     }
     void checkSession();
@@ -1252,10 +1381,14 @@ export default function HomePage() {
   }
 
   const filteredCases = useMemo(() => {
+    // The queue mirrors the selected macrosector; search narrows it further.
+    const sectorCases = emergencies.filter(
+      (item) => item.macrosector === selectedId,
+    );
     const query = submittedSearch.trim().toLowerCase();
-    if (!query) return emergencies;
+    if (!query) return sectorCases;
 
-    return emergencies.filter((item) => {
+    return sectorCases.filter((item) => {
       const sectorLabel = item.macrosector
         ? getMacrosector(item.macrosector).label
         : "Sin sector";
@@ -1271,7 +1404,7 @@ export default function HomePage() {
         .toLowerCase()
         .includes(query);
     });
-  }, [emergencies, submittedSearch]);
+  }, [emergencies, selectedId, submittedSearch]);
 
   const visibleCases = showAllCases ? filteredCases : filteredCases.slice(0, 3);
 
@@ -1317,11 +1450,6 @@ export default function HomePage() {
     return counts;
   }, [emergencies]);
 
-  const unlocatedCount = useMemo(
-    () => emergencies.filter((item) => !item.macrosector).length,
-    [emergencies],
-  );
-
   const alerts = useMemo<OperationalAlert[]>(() => {
     const list: OperationalAlert[] = [];
     const lowItems = stockItems.filter((item) => item.low_stock && item.active);
@@ -1351,6 +1479,10 @@ export default function HomePage() {
     }
     return list;
   }, [emergencies, stockItems]);
+
+  useEffect(() => {
+    setShowAllCases(false);
+  }, [selectedId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1396,7 +1528,7 @@ export default function HomePage() {
     setNewCaseOpen(true);
   }
 
-  function applyView(next: "panel" | "casos" | "ayudas") {
+  function applyView(next: "panel" | "casos") {
     setView(next);
     const url = new URL(window.location.href);
     if (next === "panel") {
@@ -1415,11 +1547,6 @@ export default function HomePage() {
     }
     if (label === "Casos") {
       applyView("casos");
-      if (casesError) void loadEmergencies();
-      return;
-    }
-    if (label === "Ayudas") {
-      applyView("ayudas");
       if (casesError) void loadEmergencies();
       return;
     }
@@ -1584,7 +1711,12 @@ export default function HomePage() {
     <div className="page-frame">
       <div className="app-shell">
         <header className="topbar">
-          <a className="brand" href="/" aria-label="Ir al panel de Ayudas y Emergencias">
+          <button
+            type="button"
+            className="brand brand--button"
+            onClick={() => applyView("panel")}
+            aria-label="Ir al panel de Ayudas y Emergencias"
+          >
             <span className="brand-mark">
               <Landmark size={18} />
             </span>
@@ -1592,13 +1724,12 @@ export default function HomePage() {
               <strong>Municipalidad de Temuco</strong>
               <span>Ayudas y Emergencias</span>
             </span>
-          </a>
+          </button>
 
           <nav className="main-nav" aria-label="Navegación principal">
             {NAV_ITEMS.map((item) => {
               const active =
                 (view === "casos" && item === "Casos") ||
-                (view === "ayudas" && item === "Ayudas") ||
                 (view === "panel" && item === "Panel");
               return (
                 <button
@@ -1615,11 +1746,6 @@ export default function HomePage() {
           </nav>
 
           <div className="topbar-actions">
-            <span className="status-pill">
-              <span className="live-dot" />
-              {emergencies.length} casos registrados
-            </span>
-
             <button className="topbar-primary" type="button" onClick={openNewCase}>
               <Plus size={14} />
               <span>Nuevo caso</span>
@@ -1778,17 +1904,6 @@ export default function HomePage() {
               onNewCase={openNewCase}
               onSelect={handleCaseSelect}
             />
-          ) : view === "ayudas" ? (
-            <AyudasView
-              emergencies={emergencies}
-              stockItems={stockItems}
-              loading={loadingCases}
-              error={casesError}
-              forbidden={forbidden}
-              role={user?.role}
-              onReload={() => void loadEmergencies()}
-              onSelect={handleCaseSelect}
-            />
           ) : (
             <>
           <div className="map-stage">
@@ -1874,9 +1989,11 @@ export default function HomePage() {
               <div className="legend-scale" />
               <div className="legend-ticks">
                 <span>0</span>
+                <span>1</span>
+                <span>2</span>
                 <span>3</span>
-                <span>6</span>
-                <span>12+</span>
+                <span>4</span>
+                <span>5+</span>
               </div>
               <span className="legend-note">
                 {mapMode === "satellite"
@@ -1902,16 +2019,6 @@ export default function HomePage() {
               aria-hidden={!inspectorOpen}
               inert={!inspectorOpen}
             >
-              <button
-                className="inspector-collapse"
-                type="button"
-                onClick={() => setInspectorOpen(false)}
-                aria-label="Ocultar panel"
-                title="Ocultar panel"
-              >
-                <ChevronRight size={15} />
-              </button>
-
               <div className="mobile-sheet-head">
                 <span className="sheet-handle" />
                 <button
@@ -1923,6 +2030,55 @@ export default function HomePage() {
                   <X size={15} />
                 </button>
               </div>
+
+              <div className="cases-total" aria-live="polite">
+                <span className="cases-total-label">
+                  {emergencies.length === 1
+                    ? "Caso registrado"
+                    : "Casos registrados"}
+                </span>
+                <span className="cases-total-count">
+                  <strong>{emergencies.length}</strong>
+                </span>
+              </div>
+
+              <Panel
+                id="territory"
+                icon={<MapPin size={15} />}
+                title="Territorio"
+                collapsed={Boolean(collapsed.territory)}
+                onToggle={() => togglePanel("territory")}
+              >
+                <div className="territory-summary" aria-live="polite">
+                  <div className="territory-title-row">
+                    <h2>{selected.label}</h2>
+                    <span className="territory-type">{selected.type}</span>
+                  </div>
+                </div>
+
+                <div className="metric-grid">
+                  <Metric
+                    label="Emergencias"
+                    value={String(sectorEmergencies.length)}
+                  />
+                  <Metric
+                    label="En proceso"
+                    value={String(
+                      sectorEmergencies.filter(
+                        (item) => item.state === "en_proceso",
+                      ).length,
+                    )}
+                  />
+                  <Metric
+                    label="Unidades entregadas"
+                    value={sectorDelivered.toLocaleString("es-CL")}
+                  />
+                </div>
+
+                {sectorHelpMix.length > 0 && (
+                  <AidMixBars mix={sectorHelpMix} />
+                )}
+              </Panel>
 
               <form className="search-bar" onSubmit={handleSearch}>
                 <Search size={15} className="search-icon" />
@@ -1948,51 +2104,6 @@ export default function HomePage() {
               </form>
 
               <div className="inspector-scroll">
-                <Panel
-                  id="territory"
-                  icon={<MapPin size={15} />}
-                  title="Territorio"
-                  badge={selected.shortLabel}
-                  collapsed={Boolean(collapsed.territory)}
-                  onToggle={() => togglePanel("territory")}
-                >
-                  <div className="territory-summary" aria-live="polite">
-                    <span className="eyebrow">Territorio seleccionado</span>
-                    <div className="territory-title-row">
-                      <h2>{selected.label}</h2>
-                      <span className="territory-type">{selected.type}</span>
-                    </div>
-                    <p>
-                      {sectorEmergencies.length} eventos
-                      {unlocatedCount > 0 &&
-                        ` · ${unlocatedCount} sin sector en total`}
-                    </p>
-                  </div>
-
-                  <div className="metric-grid">
-                    <Metric
-                      label="Eventos"
-                      value={String(sectorEmergencies.length)}
-                    />
-                    <Metric
-                      label="En proceso"
-                      value={String(
-                        sectorEmergencies.filter(
-                          (item) => item.state === "en_proceso",
-                        ).length,
-                      )}
-                    />
-                    <Metric
-                      label="Unidades entregadas"
-                      value={sectorDelivered.toLocaleString("es-CL")}
-                    />
-                  </div>
-
-                  {sectorHelpMix.length > 0 && (
-                    <AidMixBars mix={sectorHelpMix} />
-                  )}
-                </Panel>
-
                 <Panel
                   id="cases"
                   icon={<ClipboardList size={15} />}
@@ -2058,7 +2169,11 @@ export default function HomePage() {
                       </p>
                     </div>
                   ) : filteredCases.length === 0 ? (
-                    <EmptyCases query={submittedSearch} onClear={clearSearch} />
+                    <EmptyCases
+                      query={submittedSearch}
+                      sector={selected.label}
+                      onClear={clearSearch}
+                    />
                   ) : (
                     <div className="case-list">
                       {visibleCases.map((item) => (
@@ -2092,6 +2207,17 @@ export default function HomePage() {
                     </div>
                   )}
                 </Panel>
+
+                <button
+                  className="inspector-collapse"
+                  type="button"
+                  onClick={() => setInspectorOpen(false)}
+                  aria-label="Ocultar panel"
+                  title="Ocultar panel"
+                >
+                  <ChevronRight size={15} />
+                  <span>Ocultar panel</span>
+                </button>
               </div>
             </aside>
             </>

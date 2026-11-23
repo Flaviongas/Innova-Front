@@ -57,11 +57,6 @@ export default function LoginPage() {
               </li>
             </ul>
           </div>
-
-          <div className="login-visual-foot">
-            <span>Municipalidad de Temuco</span>
-            <span>Uso interno, datos protegidos</span>
-          </div>
         </div>
       </aside>
 

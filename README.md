@@ -13,7 +13,6 @@ The backend contract is documented separately with the backend
 - `/login` — Institutional login and account creation (backend auth).
 - `/panel` — Full-screen operations dashboard (map workspace + inspector, admin only).
 - `/panel?vista=casos` — Deep link to the full cases queue inside the panel.
-- `/panel?vista=ayudas` — Deep link to the delivered-aid view inside the panel.
 
 ## Run
 
@@ -72,13 +71,13 @@ npm start
 - Login page with real authentication and account creation; token session with wired logout.
 - Full viewport panel: no outer frame or padding, map fills the screen. Requires login; emergencies and stock require an administrator role.
 - Casos queue: full-width operational view with totals per state, text search, state/category/help filters, and a sortable-by-recency table that opens the detail drawer. Every count comes from the API; territories without cases stay at zero.
-- Ayudas view: delivered-aid totals, search, help/category/state filters, and two groupings — by case (opens the drawer) and by item (units delivered, cases, current stock, low-stock warning).
+- Aid deliveries are recorded from the case drawer; delivery totals per case appear in the inspector help-type mix.
 - Emergencies: live list with search, detail drawer (state transitions, edit, delivery recording with atomic stock decrement), and creation form (title, category, help type, address, GPS **or** manual latitude/longitude with automatic macrosector lookup, initial state).
-- Interactive map (Leaflet): drag to pan, scroll to zoom, click an official macrosector polygon to select it; map/satellite toggle, zoom buttons, recenter, and fullscreen. Choropleth colors come from live per-sector counts.
+- Interactive map (Leaflet): drag to pan, scroll to zoom, click an official macrosector polygon to select it; map/satellite toggle, zoom buttons, recenter, and fullscreen. Choropleth colors map each exact count (0, 1, 2, 3, 4, 5+) to a distinct blue, and each sector shows its count as a map label inside the polygon.
   - Base layers: CARTO light (`light_all`, © OpenStreetMap contributors, © CARTO) and Esri World Imagery for satellite.
 - Territory inspector with live event counts, in-process counts, delivered units, and help-type mix per macrosector.
 - Operational alerts derived from live data (low stock, unattended recibido cases) in the notification popover.
-- Bodega modal: stock list with low-stock flags, new items, and purchase movements.
+- Bodega modal: stock list with low-stock flags. “Registrar compra” and “Nuevo artículo” open as nested modals from two buttons.
 - Location capture in the Nuevo caso form: GPS via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission) or manual latitude/longitude entry. The edit form accepts manual coordinates too. On submit the map flies to the exact point.
 - Desktop, tablet, and mobile layouts. On mobile the inspector becomes a bottom sheet.
 
@@ -103,7 +102,6 @@ app/
     layout.tsx     Panel metadata
 components/
   casos-view.tsx                 Cases queue: totals, filters, table
-  ayudas-view.tsx                Delivered aid: totals, filters, case/item tables
   status-badge.tsx               Shared outline status stamp
   interactive-territory-map.tsx  Leaflet map: tiles, choropleth polygons
   landing-hero-map.tsx           Hero wrapper (map + territory caption)

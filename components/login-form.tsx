@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, EyeOff } from "lucide-react";
 import { ApiError, api, setToken } from "@/lib/api";
 
 type Mode = "login" | "register";
@@ -149,14 +149,6 @@ export function LoginForm() {
           {!busy && <ArrowRight size={15} />}
         </button>
       </form>
-
-      <div className="login-note">
-        <ShieldCheck size={15} />
-        <span>
-          Acceso restringido a personal municipal. Los datos de casos son
-          confidenciales.
-        </span>
-      </div>
     </>
   );
 }

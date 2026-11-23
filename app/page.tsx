@@ -38,13 +38,6 @@ const AID_TYPES = [
   },
 ];
 
-const TERRITORY_LEDGER = [
-  { value: "10", label: "macrosectores oficiales, más sector rural" },
-  { value: "36", label: "unidades vecinales, 32 urbanas y 4 rurales" },
-  { value: "3", label: "tipos de ayuda: bodega, monetaria y materiales" },
-  { value: "1 a 1", label: "revisión de casos, evaluación profesional" },
-];
-
 export default function LandingPage() {
   return (
     <div className="landing-page">
@@ -113,16 +106,6 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="landing-ledger">
-            <div className="landing-ledger-inner">
-              {TERRITORY_LEDGER.map((item) => (
-                <span className="landing-ledger-item" key={item.label}>
-                  <strong>{item.value}</strong>
-                  <span>{item.label}</span>
-                </span>
-              ))}
-            </div>
-          </div>
         </section>
 
         <section className="landing-section landing-aids" id="ayudas">

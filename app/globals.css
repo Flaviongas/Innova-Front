@@ -53,20 +53,21 @@
 
   /* Choropleth scale, low to high. Mirrored by territoryFill() in lib/data.ts. */
   --map-scale-1: #eff7fd;
-  --map-scale-2: #d9edfa;
-  --map-scale-3: #a9d6f5;
-  --map-scale-4: #4b9fd4;
+  --map-scale-2: #c6e3f8;
+  --map-scale-3: #93ccf1;
+  --map-scale-4: #5aa6da;
   --map-scale-5: #3574b5;
+  --map-scale-6: #1d4f7a;
 
   --font-family: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  --font-size-xs: 11px;
-  --font-size-caption: 12px;
-  --font-size-sm: 13px;
-  --font-size-base: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 28px;
+  --font-size-xs: 12px;
+  --font-size-caption: 13px;
+  --font-size-sm: 14px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 30px;
   --font-size-display: clamp(40px, 4.6vw, 62px);
   --font-size-title: clamp(28px, 3.3vw, 40px);
 
@@ -95,7 +96,7 @@
   --shadow-panel: 0 4px 14px rgba(10, 25, 50, 0.07);
 
   --navbar-height: 64px;
-  --inspector-width: 380px;
+  --inspector-width: 420px;
   --content-max-width: 1440px;
 }
 
@@ -208,6 +209,14 @@ a {
   border-radius: var(--radius-lg);
 }
 
+.brand--button {
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
 .brand-mark {
   display: grid;
   place-items: center;
@@ -237,7 +246,7 @@ a {
 
 .brand-copy span {
   color: var(--color-text-secondary);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 500;
   letter-spacing: 0.01em;
 }
@@ -312,7 +321,7 @@ a {
   align-items: center;
   gap: 6px;
   color: var(--color-text-secondary);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -326,7 +335,7 @@ a {
   height: 34px;
   padding: 0 12px;
   color: var(--color-text-inverse);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 700;
   white-space: nowrap;
   background: var(--color-primary);
@@ -411,14 +420,17 @@ a {
 }
 
 .avatar {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 27px;
   height: 27px;
   color: var(--color-primary);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
   background: var(--color-primary-subtle);
   border: 1px solid var(--color-primary-light);
   border-radius: 50%;
@@ -432,7 +444,7 @@ a {
 
 .user-name {
   color: var(--color-text-primary);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -498,7 +510,7 @@ a {
 
 .popover-head span {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .popover-list {
@@ -534,14 +546,14 @@ a {
 }
 
 .notification-copy strong {
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 600;
   line-height: 1.25;
 }
 
 .notification-copy span {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.25;
 }
 
@@ -549,7 +561,7 @@ a {
   width: 100%;
   padding: 10px;
   color: var(--color-primary);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 700;
   background: var(--color-surface);
   border: 0;
@@ -580,11 +592,11 @@ a {
   font-weight: 700;
 }
 
-.user-summary span {
+.user-summary > div span {
   display: block;
   margin-top: 2px;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .menu-list {
@@ -601,7 +613,7 @@ a {
   width: 100%;
   padding: 8px 10px;
   color: var(--color-text-primary);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 500;
   text-align: left;
   background: none;
@@ -897,7 +909,7 @@ a {
 
 .queue-filter > span {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -979,7 +991,7 @@ a {
 .queue-table-head {
   height: 38px;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1030,7 +1042,7 @@ a {
 
 .queue-code {
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -1256,7 +1268,7 @@ a {
     overflow: hidden;
     margin-top: 2px;
     color: var(--color-text-muted);
-    font-size: 10px;
+    font-size: 12px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1375,7 +1387,7 @@ a {
   z-index: 500;
   padding: 3px 8px;
   color: var(--color-text-secondary);
-  font-size: 9px;
+  font-size: 11px;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -1398,6 +1410,48 @@ a {
   font-family: var(--font-family);
 }
 
+/* Emergency count rendered as a map label at each macrosector centroid.
+   The halo keeps it legible over streets and polygon fills. */
+.sector-count-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary-deep);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.95),
+    1px -1px 0 rgba(255, 255, 255, 0.95),
+    -1px 1px 0 rgba(255, 255, 255, 0.95),
+    1px 1px 0 rgba(255, 255, 255, 0.95),
+    0 0 5px rgba(255, 255, 255, 0.9);
+  pointer-events: none;
+}
+
+.sector-count-marker span {
+  display: block;
+  line-height: 1;
+  transform: translateY(-0.5px);
+}
+
+.sector-count-marker--zero {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.sector-count-marker--on-dark {
+  color: var(--color-text-inverse);
+  text-shadow:
+    -1px -1px 0 var(--color-primary-deep),
+    1px -1px 0 var(--color-primary-deep),
+    -1px 1px 0 var(--color-primary-deep),
+    1px 1px 0 var(--color-primary-deep),
+    0 0 5px var(--color-primary-deep);
+}
+
 /* Leaflet paths are focusable; the browser's default focus ring is a black
    rectangle around the polygon's bounding box. Keep focus visible for
    keyboard users, but suppress it for pointer selection. */
@@ -1411,7 +1465,7 @@ a {
 }
 
 .leaflet-control-attribution {
-  font-size: 9px !important;
+  font-size: 11px !important;
   background: rgba(255, 255, 255, 0.72) !important;
   backdrop-filter: blur(6px);
 }
@@ -1517,8 +1571,8 @@ a {
   bottom: 16px;
   left: 16px;
   z-index: 5;
-  width: 214px;
-  padding: 10px 12px;
+  width: 240px;
+  padding: 12px 14px;
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -1532,7 +1586,7 @@ a {
   justify-content: space-between;
   gap: 8px;
   color: var(--color-text-secondary);
-  font-size: 9.5px;
+  font-size: 13.5px;
   font-weight: 700;
 }
 
@@ -1542,15 +1596,16 @@ a {
 }
 
 .legend-scale {
-  height: 6px;
+  height: 8px;
   margin: 8px 0 5px;
   background: linear-gradient(
     90deg,
     var(--map-scale-1) 0%,
-    var(--map-scale-2) 30%,
-    var(--map-scale-3) 55%,
-    var(--map-scale-4) 80%,
-    var(--map-scale-5) 100%
+    var(--map-scale-2) 20%,
+    var(--map-scale-3) 40%,
+    var(--map-scale-4) 60%,
+    var(--map-scale-5) 80%,
+    var(--map-scale-6) 100%
   );
   border: 1px solid rgba(53, 116, 181, 0.08);
   border-radius: var(--radius-full);
@@ -1560,7 +1615,7 @@ a {
   display: flex;
   justify-content: space-between;
   color: var(--color-text-muted);
-  font-size: 8.5px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1569,8 +1624,8 @@ a {
   margin-top: 7px;
   padding-top: 6px;
   color: var(--color-text-secondary);
-  font-size: 8px;
-  line-height: 1.2;
+  font-size: 11.5px;
+  line-height: 1.35;
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -1604,20 +1659,20 @@ a {
 }
 
 .inspector-collapse {
-  position: absolute;
-  top: 16px;
-  left: -34px;
-  z-index: 11;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 58px;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 34px;
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.96);
+  font-size: 12.5px;
+  font-weight: 700;
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-right: 0;
-  border-radius: var(--radius-md) 0 0 var(--radius-md);
-  box-shadow: -4px 4px 12px rgba(10, 25, 50, 0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
   cursor: pointer;
 }
 
@@ -1678,7 +1733,7 @@ a {
   min-width: 0;
   padding: 0;
   color: var(--color-text-primary);
-  font-size: 11.5px;
+  font-size: 13.5px;
   background: transparent;
   border: 0;
   outline: none;
@@ -1719,6 +1774,42 @@ a {
 
 .search-submit:hover {
   background: var(--color-primary-hover);
+}
+
+/* Total-cases summary card pinned above the territory panel. */
+
+.cases-total {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-panel);
+}
+
+.cases-total-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.cases-total-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cases-total-count strong {
+  color: var(--color-text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 /* Panels */
@@ -1763,7 +1854,7 @@ a {
 
 .panel-title {
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   text-overflow: ellipsis;
@@ -1772,7 +1863,7 @@ a {
 
 .panel-badge {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -1790,7 +1881,7 @@ a {
 .panel-action {
   padding: 0;
   color: var(--color-primary);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 700;
   white-space: nowrap;
   background: none;
@@ -1810,7 +1901,7 @@ a {
   display: block;
   margin-bottom: 3px;
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -1834,7 +1925,7 @@ a {
 .territory-type {
   padding: 2px 6px;
   color: var(--color-text-secondary);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-weight: 700;
   background: var(--color-surface-secondary);
   border: 1px solid var(--color-border);
@@ -1844,7 +1935,7 @@ a {
 .territory-summary p {
   margin: 3px 0 0;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1854,7 +1945,6 @@ a {
   gap: 6px;
   margin-top: 9px;
   padding: 8px 0;
-  border-top: 1px solid var(--color-border-subtle);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -1867,16 +1957,16 @@ a {
 
 .metric-value {
   color: var(--color-text-primary);
-  font-size: var(--font-size-lg);
+  font-size: 26px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
 .metric-label {
   color: var(--color-text-muted);
-  font-size: 8.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -1886,7 +1976,7 @@ a {
   gap: 4px;
   margin-top: 8px;
   color: var(--color-success);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -1917,7 +2007,7 @@ a {
 .aid-mix-title {
   margin-bottom: 1px;
   color: var(--color-text-secondary);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -1931,7 +2021,7 @@ a {
 .aid-label {
   overflow: hidden;
   color: var(--color-text-secondary);
-  font-size: 8.5px;
+  font-size: 10.5px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1951,7 +2041,7 @@ a {
 
 .aid-value {
   color: var(--color-text-muted);
-  font-size: 8.5px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -1963,7 +2053,7 @@ a {
   margin-top: 10px;
   padding: 0;
   color: var(--color-primary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   background: none;
   border: 0;
@@ -1982,7 +2072,7 @@ a {
   padding: 4px 6px;
   margin-bottom: 7px;
   color: var(--color-primary);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   background: var(--color-primary-subtle);
   border: 1px solid var(--color-primary-light);
@@ -2053,7 +2143,7 @@ a {
 
 .case-folio {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -2062,14 +2152,14 @@ a {
 .case-time {
   margin-left: auto;
   color: var(--color-text-muted);
-  font-size: 8.5px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 
 .case-person {
   overflow: hidden;
   color: var(--color-text-primary);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.2;
@@ -2080,7 +2170,7 @@ a {
 .case-meta {
   overflow: hidden;
   color: var(--color-text-secondary);
-  font-size: 9px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2090,7 +2180,7 @@ a {
   align-items: flex-start;
   max-width: 128px;
   padding: 3px 7px;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
   text-align: left;
@@ -2140,7 +2230,7 @@ a {
   max-width: 220px;
   margin: 2px 0 0;
   color: var(--color-text-secondary);
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.4;
 }
 
@@ -2174,7 +2264,7 @@ a {
   flex-shrink: 0;
   min-width: 18px;
   color: var(--color-text-secondary);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -2193,7 +2283,7 @@ a {
   height: 38px;
   padding: 0 12px;
   color: var(--color-primary);
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 700;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -2245,6 +2335,25 @@ a {
 }
 
 /* New case modal */
+
+.modal-scrim--nested {
+  z-index: 110;
+}
+
+.modal--nested {
+  width: min(440px, 100%);
+}
+
+.stock-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.stock-actions .button {
+  flex: 1 1 160px;
+}
 
 .modal-scrim {
   position: fixed;
@@ -2330,7 +2439,7 @@ a {
   flex-direction: column;
   gap: 5px;
   color: var(--color-text-secondary);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 700;
 }
 
@@ -2340,7 +2449,7 @@ a {
   width: 100%;
   padding: 9px 10px;
   color: var(--color-text-primary);
-  font-size: 11.5px;
+  font-size: 13.5px;
   font-weight: 400;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -2379,7 +2488,7 @@ a {
   padding: 9px 10px;
   margin-top: 12px;
   color: var(--color-warning-strong);
-  font-size: 9.5px;
+  font-size: 11.5px;
   line-height: 1.4;
   background: var(--color-warning-bg);
   border: 1px solid var(--color-warning-border);
@@ -2505,20 +2614,20 @@ a {
 
 .gps-error {
   color: var(--color-danger);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 500;
   line-height: 1.4;
 }
 
 .gps-hint {
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .gps-located {
   color: var(--color-primary);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -2526,7 +2635,7 @@ a {
   padding: 8px 10px;
   margin: 12px 0 0;
   color: var(--color-danger-strong);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
   background: var(--color-danger-subtle);
@@ -2594,7 +2703,7 @@ a {
   height: 28px;
   padding: 0 10px;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
   background: transparent;
@@ -2636,13 +2745,13 @@ a {
 
 .drawer-facts dt {
   color: var(--color-text-muted);
-  font-size: 9.5px;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
 .drawer-facts dd {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 13.5px;
   overflow-wrap: anywhere;
 }
 
@@ -2668,20 +2777,20 @@ a {
 
 .drawer-section-head span {
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
 .drawer-empty {
   margin: 0;
   color: var(--color-text-secondary);
-  font-size: 10.5px;
+  font-size: 12.5px;
 }
 
 .drawer-hint {
   margin: 8px 0 0;
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -2714,7 +2823,7 @@ a {
   justify-content: space-between;
   gap: 12px;
   padding: 7px 0;
-  font-size: 11px;
+  font-size: 13px;
   border-top: 1px solid var(--color-border-subtle);
 }
 
@@ -2756,12 +2865,12 @@ a {
 }
 
 .stock-name strong {
-  font-size: 11.5px;
+  font-size: 13.5px;
 }
 
 .stock-name span {
   color: var(--color-text-secondary);
-  font-size: 9.5px;
+  font-size: 11.5px;
 }
 
 .stock-qty {
@@ -2797,7 +2906,7 @@ a {
   gap: 6px;
   height: 36px;
   padding: 0 14px;
-  font-size: 10.5px;
+  font-size: 12.5px;
   font-weight: 700;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -2884,7 +2993,7 @@ a {
 
 @media (max-width: 1020px) {
   .inspector {
-    width: 350px;
+    width: 380px;
   }
 
   .brand-copy span {
@@ -2928,7 +3037,7 @@ a {
   .nav-link {
     height: 42px;
     padding: 0 10px;
-    font-size: 11.5px;
+    font-size: 13.5px;
   }
 
   .nav-link::after {
@@ -3034,7 +3143,7 @@ a {
 
 @media (max-width: 620px) {
   .brand-copy strong {
-    font-size: 11.5px;
+    font-size: 13.5px;
   }
 
   .brand-copy span {
@@ -3069,6 +3178,14 @@ a {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .drawer-form {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-actions .button {
+    flex: 1 1 100%;
   }
 
   .field--full {

@@ -174,10 +174,20 @@ export function getMacrosector(id: string): Macrosector {
   );
 }
 
+// Discrete choropleth buckets. Every count gets its own colour so the map
+// communicates the exact number, not just a relative intensity. Counts above
+// the last bucket keep the darkest fill.
+const TERRITORY_FILLS = [
+  "#EFF7FD", // 0
+  "#C6E3F8", // 1
+  "#93CCF1", // 2
+  "#5AA6DA", // 3
+  "#3574B5", // 4
+  "#1D4F7A", // 5+
+];
+
 export function territoryFill(cases: number): string {
-  if (cases >= 12) return "#3574B5";
-  if (cases >= 9) return "#4B9FD4";
-  if (cases >= 6) return "#A9D6F5";
-  if (cases >= 3) return "#D9EDFA";
-  return "#EFF7FD";
+  if (!Number.isFinite(cases) || cases <= 0) return TERRITORY_FILLS[0];
+  const index = Math.min(Math.floor(cases), TERRITORY_FILLS.length - 1);
+  return TERRITORY_FILLS[index];
 }

@@ -273,15 +273,18 @@ Use category colors for aid types. Use the territorial scale for map intensity a
 | Apoyo social / derivación | `#65A30D` |
 | Otras ayudas | `#8B8E8D` |
 
-**Territorial scale** — use for choropleths and ordered intensity, from low to high. Mirrored by `territoryFill()` in `lib/data.ts` so the map legend and the polygon fills can never disagree:
+**Territorial scale** — use for choropleths and ordered intensity. Every exact count gets its own fill so the map reads as a count, not a relative heat. `territoryFill()` in `lib/data.ts` mirrors these buckets:
 
-| Step | Color | Cases |
-| --- | --- | --- |
-| 1 | `#EFF7FD` | 0–2 |
-| 2 | `#D9EDFA` | 3–5 |
-| 3 | `#A9D6F5` | 6–8 |
-| 4 | `#4B9FD4` | 9–11 |
-| 5 | `#3574B5` | 12+ |
+| Cases | Color |
+| --- | --- |
+| 0 | `#EFF7FD` |
+| 1 | `#C6E3F8` |
+| 2 | `#93CCF1` |
+| 3 | `#5AA6DA` |
+| 4 | `#3574B5` |
+| 5+ | `#1D4F7A` |
+
+Each macrosector also shows its current count as a bold map label at its widest interior point, with a white halo so it stays legible over streets and fills. Labels are hidden below zoom 12 so they do not crowd the map when zoomed out.
 
 **Chart rules:**
 
@@ -306,16 +309,16 @@ Use category colors for aid types. Use the territorial scale for map intensity a
 | --- | --- | --- | --- |
 | Display | `clamp(40px, 4.6vw, 62px)` | 700 | 1.0 |
 | Title | `clamp(28px, 3.3vw, 40px)` | 700 | 1.08 |
-| Page title | 28px | 700 | 36px |
-| Section title | 20px | 700 | 28px |
-| Card title | 16px | 700 | 22px |
-| Body | 14px | 400 | 20px |
-| Secondary body | 13px | 400 | 18px |
-| Caption | 12px | 500–600 | 16px |
-| Navigation | 13px | 500 | 18px |
-| Label | 12px | 500 | 16px |
-| Metadata | 11px | 400 | 16px |
-| Metadata micro | 8–11.5px in 0.5px steps | 400–500 | 1.3–1.45 |
+| Page title | 30px | 700 | 38px |
+| Section title | 22px | 700 | 30px |
+| Card title | 17px | 700 | 24px |
+| Body | 15px | 400 | 22px |
+| Secondary body | 14px | 400 | 20px |
+| Caption | 13px | 500–600 | 18px |
+| Navigation | 14px | 500 | 20px |
+| Label | 13px | 500 | 18px |
+| Metadata | 12px | 400 | 17px |
+| Metadata micro | 10–13.5px in 0.5px steps | 400–500 | 1.3–1.45 |
 
 Display is reserved for the landing hero and the login headline. Title is for section headings. Metadata micro sizes are only for compact metadata (badges, ticks, attributions, tooltips): always tabular numerals where numeric, always muted or secondary color, never for body copy.
 
@@ -1071,13 +1074,6 @@ The case detail is the core workspace. It should make the following obvious:
 
 The Ayudas module focuses on delivery and follow-through, not intake.
 
-**Implemented in the SPA (`/panel?vista=ayudas`):**
-
-- Summary strip: unidades entregadas, casos con entregas, artículos distintos, casos entregados.
-- Two groupings: **Por caso** (click opens the shared case drawer) and **Por artículo** (units delivered, cases, current stock, low-stock warning).
-- Search by item, code, title or sector; filters by help type, stock category and case state.
-- No deliveries yet is a first-class empty state that points to the case drawer.
-
 **Views:**
 
 - Entregas: all aid records, with status and blockers.
@@ -1643,20 +1639,21 @@ Future primitives from §6 (Table, Tabs, Accordion, Timeline) go in `components/
 
   /* Choropleth scale, low to high. Mirrored by territoryFill() in lib/data.ts. */
   --map-scale-1: #eff7fd;
-  --map-scale-2: #d9edfa;
-  --map-scale-3: #a9d6f5;
-  --map-scale-4: #4b9fd4;
+  --map-scale-2: #c6e3f8;
+  --map-scale-3: #93ccf1;
+  --map-scale-4: #5aa6da;
   --map-scale-5: #3574b5;
+  --map-scale-6: #1d4f7a;
 
   --font-family: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  --font-size-xs: 11px;
-  --font-size-caption: 12px;
-  --font-size-sm: 13px;
-  --font-size-base: 14px;
-  --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 28px;
+  --font-size-xs: 12px;
+  --font-size-caption: 13px;
+  --font-size-sm: 14px;
+  --font-size-base: 15px;
+  --font-size-lg: 17px;
+  --font-size-xl: 22px;
+  --font-size-2xl: 30px;
   --font-size-display: clamp(40px, 4.6vw, 62px);
   --font-size-title: clamp(28px, 3.3vw, 40px);
 
@@ -1685,19 +1682,11 @@ Future primitives from §6 (Table, Tabs, Accordion, Timeline) go in `components/
   --shadow-panel: 0 4px 14px rgba(10, 25, 50, 0.07);
 
   --navbar-height: 64px;
-  --inspector-width: 380px;
+  --inspector-width: 420px;
   --content-max-width: 1440px;
 }
-
-
-```tsx
-<TerritorySelect
-  macrosector="4"
-  unidadVecinal="..."
-  confidence="media"
-  allowManualOverride
-/>
 ```
+
 
 Avoid separate CSS implementations for visually identical buttons, cards, or tables across modules.
 

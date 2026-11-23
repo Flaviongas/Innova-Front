@@ -9,6 +9,7 @@ import {
   OFFICIAL_TO_ID,
   loadMacrosectores,
   polygonCenter,
+  polygonLabelPoint,
   type GeoPolygon,
 } from "@/lib/macrosectores";
 
@@ -197,6 +198,9 @@ export function InteractiveTerritoryMap({
   const tileRef = useRef<L.TileLayer | null>(null);
   const geoLayerRef = useRef<L.GeoJSON | null>(null);
   const centroidsRef = useRef<Map<string, [number, number]>>(new Map());
+  const labelPointsRef = useRef<Map<string, [number, number]>>(new Map());
+  const countMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const syncCountsRef = useRef<() => void>(() => {});
   const onSelectRef = useRef(onSelect);
   const onMapReadyRef = useRef(onMapReady);
   const selectedRef = useRef(selectedId);
@@ -236,6 +240,10 @@ export function InteractiveTerritoryMap({
         });
         mapRef.current = map;
 
+        // Count badges are only useful while the sectors are large enough on
+        // screen; hide them when zoomed far out.
+        map.on("zoomend", () => syncCountMarkers());
+
         // A sticky tooltip anchored to the cursor survives a drag and then
         // floats over whatever sector is under the pointer. Close it whenever
         // the map moves or a sector is selected so no stale overlay remains.
@@ -274,13 +282,11 @@ export function InteractiveTerritoryMap({
                 const id = name ? OFFICIAL_TO_ID[name] : undefined;
                 if (!id) return;
 
-                centroidsRef.current.set(
-                  id,
-                  polygonCenter(
-                    (feature.geometry as unknown as { coordinates: GeoPolygon })
-                      .coordinates,
-                  ),
-                );
+                const coordinates = (
+                  feature.geometry as unknown as { coordinates: GeoPolygon }
+                ).coordinates;
+                centroidsRef.current.set(id, polygonCenter(coordinates));
+                labelPointsRef.current.set(id, polygonLabelPoint(coordinates));
                 sublayer.bindTooltip(
                   tooltipFor(id, countsRef.current, showCountsRef.current),
                   { sticky: true, opacity: 1 },
@@ -300,6 +306,7 @@ export function InteractiveTerritoryMap({
           ).addTo(map);
           geoLayerRef.current = layer;
           applySelection(selectedRef.current);
+          syncCountMarkers();
         } catch {
           if (!cancelled) {
             setStatus(
@@ -329,6 +336,59 @@ export function InteractiveTerritoryMap({
       );
     }
 
+    function syncCountMarkers() {
+      const leaflet = leafletRef.current;
+      const map = mapRef.current;
+      if (!leaflet || !map) return;
+      const markers = countMarkersRef.current;
+
+      if (!showCountsRef.current) {
+        for (const marker of markers.values()) marker.remove();
+        markers.clear();
+        return;
+      }
+
+      const visible = map.getZoom() >= 12;
+      for (const [id, coords] of labelPointsRef.current) {
+        const count = countsRef.current?.[id] ?? 0;
+        const modifier =
+          count === 0
+            ? " sector-count-marker--zero"
+            : count >= 4
+              ? " sector-count-marker--on-dark"
+              : "";
+        const icon = leaflet.divIcon({
+          className: `sector-count-marker${modifier}`,
+          html: `<span>${count}</span>`,
+          iconSize: [26, 20],
+          iconAnchor: [13, 10],
+        });
+
+        let marker = markers.get(id);
+        if (marker) {
+          marker.setIcon(icon);
+        } else {
+          marker = leaflet
+            .marker(coords, {
+              icon,
+              interactive: false,
+              keyboard: false,
+              zIndexOffset: 1000,
+            })
+            .addTo(map);
+          markers.set(id, marker);
+        }
+
+        const element = marker.getElement();
+        if (element) {
+          element.dataset.sector = id;
+          element.style.display = visible ? "" : "none";
+          element.title = `${count} emergencias`;
+        }
+      }
+    }
+
+    syncCountsRef.current = syncCountMarkers;
     init();
 
     return () => {
@@ -337,6 +397,9 @@ export function InteractiveTerritoryMap({
       mapRef.current = null;
       geoLayerRef.current = null;
       centroidsRef.current.clear();
+      labelPointsRef.current.clear();
+      countMarkersRef.current.clear();
+      syncCountsRef.current = () => {};
       tileRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -382,17 +445,19 @@ export function InteractiveTerritoryMap({
     );
   }, [selectedId]);
 
-  // Refresh fills and tooltips when data, counts or display mode change.
+  // Refresh fills, tooltips and count badges when data or mode changes.
   useEffect(() => {
     const layer = geoLayerRef.current;
-    if (!layer) return;
-    restyleLayer(
-      layer,
-      selectedRef.current,
-      counts,
-      showCounts,
-      choropleth,
-    );
+    if (layer) {
+      restyleLayer(
+        layer,
+        selectedRef.current,
+        counts,
+        showCounts,
+        choropleth,
+      );
+    }
+    syncCountsRef.current();
   }, [counts, showCounts, choropleth]);
 
   return (
