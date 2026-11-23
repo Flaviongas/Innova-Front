@@ -15,6 +15,17 @@
   backdrop-filter: blur(14px);
 }
 
+.landing-header::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  content: "";
+  background: var(--gradient-logo);
+  pointer-events: none;
+}
+
 .landing-header-inner {
   display: flex;
   align-items: center;
@@ -557,7 +568,7 @@
 .landing-transparency-list svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--color-mint);
+  color: var(--color-sky);
 }
 
 .landing-transparency-card {
@@ -581,7 +592,7 @@
 }
 
 .landing-transparency-card__head svg {
-  color: var(--color-mint);
+  color: var(--color-sky);
 }
 
 .landing-transparency-row {
@@ -793,10 +804,23 @@
 /* Login page */
 
 .login-page {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(420px, 46%) 1fr;
   min-height: 100dvh;
   background: var(--color-surface-secondary);
+}
+
+.login-page::before {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 10;
+  height: 3px;
+  content: "";
+  background: var(--gradient-logo);
+  pointer-events: none;
 }
 
 .login-visual {
@@ -836,19 +860,19 @@
 }
 
 .login-map__territory--active {
-  fill: rgba(169, 205, 187, 0.16);
-  stroke: rgba(169, 205, 187, 0.4);
+  fill: rgba(169, 214, 245, 0.18);
+  stroke: rgba(169, 214, 245, 0.45);
 }
 
 .login-map__river {
   fill: none;
-  stroke: rgba(169, 205, 187, 0.14);
+  stroke: rgba(169, 214, 245, 0.16);
   stroke-width: 32;
   stroke-linecap: round;
 }
 
 .login-map__marker {
-  fill: var(--color-mint);
+  fill: var(--color-sky);
   opacity: 0.55;
 }
 
@@ -910,11 +934,11 @@
 
 .login-stamp {
   padding: 3px 8px;
-  color: var(--color-mint);
+  color: var(--color-sky);
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
-  border: 1px solid rgba(169, 205, 187, 0.5);
+  border: 1px solid rgba(169, 214, 245, 0.55);
   border-radius: var(--radius-xs);
 }
 
@@ -957,7 +981,7 @@
 }
 
 .login-features svg {
-  color: var(--color-mint);
+  color: var(--color-sky);
 }
 
 .login-visual-foot {
@@ -976,7 +1000,7 @@
   min-height: 100dvh;
   padding: 24px 32px 32px;
   background:
-    radial-gradient(circle at 80% 0%, rgba(220, 235, 227, 0.55), transparent 34%),
+    radial-gradient(circle at 80% 0%, rgba(214, 233, 250, 0.55), transparent 34%),
     var(--color-surface-secondary);
 }
 
@@ -1017,7 +1041,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-3xl);
-  box-shadow: 0 20px 60px rgba(15, 35, 25, 0.12);
+  box-shadow: 0 20px 60px rgba(10, 25, 50, 0.12);
 }
 
 .login-card h2 {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { getMacrosector, territoryFill } from "@/lib/data";
+import { focusMap } from "@/lib/map-focus";
 import {
   OFFICIAL_TO_ID,
   loadMacrosectores,
@@ -96,8 +97,11 @@ type InteractiveTerritoryMapProps = {
   mapMode: "map" | "satellite";
   onMapReady?: (map: L.Map) => void;
   scrollWheelZoom?: boolean;
-  /** Real per-sector case counts; falls back to reference data when absent. */
+  /** Live per-sector case counts. Sectors without an entry render as zero. */
   counts?: Record<string, number>;
+  /** Show case counts in tooltips and use the choropleth fill. False for public views. */
+  showCounts?: boolean;
+  choropleth?: boolean;
 };
 
 function featureName(feature: GeoJSON.Feature): string | undefined {
@@ -120,29 +124,44 @@ function polygonStyle(
   name: string | undefined,
   selected: boolean,
   counts?: Record<string, number>,
+  choropleth = true,
 ): L.PathOptions {
   const id = name ? OFFICIAL_TO_ID[name] : undefined;
-  const cases = id ? (counts?.[id] ?? getMacrosector(id).cases) : 0;
+  // Counts are authoritative only when provided. Never fall back to the
+  // synthetic reference figures: a public map must not imply live data.
+  const cases = id && counts ? (counts[id] ?? 0) : 0;
 
   return {
-    color: cssVar("--color-primary", "#125742"),
+    color: cssVar("--color-primary", "#3574B5"),
     weight: selected ? 2.5 : 1.2,
     opacity: selected ? 0.9 : 0.45,
-    fillColor: territoryFill(cases),
+    fillColor: choropleth
+      ? territoryFill(cases)
+      : cssVar("--color-primary-light", "#D9EDFA"),
     fillOpacity: selected ? 0.6 : 0.42,
   };
 }
 
-function tooltipFor(id: string, counts?: Record<string, number>): string {
+function tooltipFor(
+  id: string,
+  counts?: Record<string, number>,
+  showCounts = true,
+): string {
   const sector = getMacrosector(id);
-  const cases = counts?.[id] ?? sector.cases;
-  return `<strong>${sector.label}</strong><br/>${cases} casos activos`;
+  if (!showCounts) {
+    return `<strong>${sector.label}</strong>`;
+  }
+  const cases = counts ? (counts[id] ?? 0) : 0;
+  const suffix = cases === 1 ? "caso registrado" : "casos registrados";
+  return `<strong>${sector.label}</strong><br/>${cases} ${suffix}`;
 }
 
 function restyleLayer(
   layer: L.GeoJSON,
   selectedId: string,
   counts?: Record<string, number>,
+  showCounts = true,
+  choropleth = true,
 ): void {
   layer.eachLayer((sublayer) => {
     const feature = (sublayer as L.GeoJSON).feature as
@@ -151,10 +170,10 @@ function restyleLayer(
     const name = feature ? featureName(feature) : undefined;
     const sid = name ? OFFICIAL_TO_ID[name] : undefined;
     (sublayer as L.Path).setStyle(
-      polygonStyle(name, !!sid && sid === selectedId, counts),
+      polygonStyle(name, !!sid && sid === selectedId, counts, choropleth),
     );
     if (sid) {
-      sublayer.bindTooltip(tooltipFor(sid, counts), {
+      sublayer.bindTooltip(tooltipFor(sid, counts, showCounts), {
         sticky: true,
         opacity: 1,
       });
@@ -169,6 +188,8 @@ export function InteractiveTerritoryMap({
   onMapReady,
   scrollWheelZoom = true,
   counts,
+  showCounts = true,
+  choropleth = true,
 }: InteractiveTerritoryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const leafletRef = useRef<typeof L | null>(null);
@@ -182,6 +203,8 @@ export function InteractiveTerritoryMap({
   const modeRef = useRef(mapMode);
   const scrollRef = useRef(scrollWheelZoom);
   const countsRef = useRef(counts);
+  const showCountsRef = useRef(showCounts);
+  const choroplethRef = useRef(choropleth);
   const [status, setStatus] = useState("iniciando");
 
   onSelectRef.current = onSelect;
@@ -190,6 +213,8 @@ export function InteractiveTerritoryMap({
   modeRef.current = mapMode;
   scrollRef.current = scrollWheelZoom;
   countsRef.current = counts;
+  showCountsRef.current = showCounts;
+  choroplethRef.current = choropleth;
 
   // Create the map once, loading Leaflet only in the browser.
   useEffect(() => {
@@ -210,6 +235,13 @@ export function InteractiveTerritoryMap({
           scrollWheelZoom: scrollRef.current,
         });
         mapRef.current = map;
+
+        // A sticky tooltip anchored to the cursor survives a drag and then
+        // floats over whatever sector is under the pointer. Close it whenever
+        // the map moves or a sector is selected so no stale overlay remains.
+        map.on("movestart click", () => {
+          geoLayerRef.current?.eachLayer((layer) => layer.closeTooltip());
+        });
 
         const tiles =
           modeRef.current === "map"
@@ -235,6 +267,7 @@ export function InteractiveTerritoryMap({
                   feature ? featureName(feature) : undefined,
                   false,
                   countsRef.current,
+                  choroplethRef.current,
                 ),
               onEachFeature: (feature, sublayer) => {
                 const name = featureName(feature);
@@ -248,11 +281,20 @@ export function InteractiveTerritoryMap({
                       .coordinates,
                   ),
                 );
-                sublayer.bindTooltip(tooltipFor(id, countsRef.current), {
-                  sticky: true,
-                  opacity: 1,
+                sublayer.bindTooltip(
+                  tooltipFor(id, countsRef.current, showCountsRef.current),
+                  { sticky: true, opacity: 1 },
+                );
+                sublayer.on("click", () => {
+                  onSelectRef.current(id);
+                  // Clicking an SVG path gives it keyboard focus, which draws
+                  // the browser's default rectangular outline over the
+                  // polygon. Drop it so only our own selection style shows.
+                  const path = (sublayer as L.Path).getElement() as
+                    | HTMLElement
+                    | null;
+                  path?.blur();
                 });
-                sublayer.on("click", () => onSelectRef.current(id));
               },
             },
           ).addTo(map);
@@ -278,7 +320,13 @@ export function InteractiveTerritoryMap({
     function applySelection(id: string) {
       const layer = geoLayerRef.current;
       if (!layer) return;
-      restyleLayer(layer, id, countsRef.current);
+      restyleLayer(
+        layer,
+        id,
+        countsRef.current,
+        showCountsRef.current,
+        choroplethRef.current,
+      );
     }
 
     init();
@@ -318,24 +366,34 @@ export function InteractiveTerritoryMap({
     const layer = geoLayerRef.current;
     if (!map || !layer) return;
 
-    restyleLayer(layer, selectedId, countsRef.current);
+    restyleLayer(
+      layer,
+      selectedId,
+      countsRef.current,
+      showCountsRef.current,
+      choroplethRef.current,
+    );
 
     const coords = centroidsRef.current.get(selectedId);
-    if (coords) {
-      map.flyTo(coords, Math.max(map.getZoom(), 13), { duration: 0.8 });
-    } else {
-      map.flyTo(TEMUCO_CENTER, Math.max(map.getZoom(), 12), {
-        duration: 0.8,
-      });
-    }
+    focusMap(
+      map,
+      coords ?? TEMUCO_CENTER,
+      Math.max(map.getZoom(), coords ? 13 : 12),
+    );
   }, [selectedId]);
 
-  // Refresh fills and tooltips when real counts arrive or change.
+  // Refresh fills and tooltips when data, counts or display mode change.
   useEffect(() => {
     const layer = geoLayerRef.current;
     if (!layer) return;
-    restyleLayer(layer, selectedRef.current, counts);
-  }, [counts]);
+    restyleLayer(
+      layer,
+      selectedRef.current,
+      counts,
+      showCounts,
+      choropleth,
+    );
+  }, [counts, showCounts, choropleth]);
 
   return (
     <div className="interactive-map-wrap">

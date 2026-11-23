@@ -12,6 +12,8 @@ The backend contract is documented separately with the backend
 - `/seguimiento` — Public code lookup, no login required.
 - `/login` — Institutional login and account creation (backend auth).
 - `/panel` — Full-screen operations dashboard (map workspace + inspector, admin only).
+- `/panel?vista=casos` — Deep link to the full cases queue inside the panel.
+- `/panel?vista=ayudas` — Deep link to the delivered-aid view inside the panel.
 
 ## Run
 
@@ -69,13 +71,15 @@ npm start
 - Landing page with live-map hero, aid timeline, public code lookup (no login), and transparency section.
 - Login page with real authentication and account creation; token session with wired logout.
 - Full viewport panel: no outer frame or padding, map fills the screen. Requires login; emergencies and stock require an administrator role.
-- Emergencies: live list with search, detail drawer (state transitions, edit, delivery recording with atomic stock decrement), and creation form (title, category, help type, address, required GPS with automatic macrosector lookup, initial state).
+- Casos queue: full-width operational view with totals per state, text search, state/category/help filters, and a sortable-by-recency table that opens the detail drawer. Every count comes from the API; territories without cases stay at zero.
+- Ayudas view: delivered-aid totals, search, help/category/state filters, and two groupings — by case (opens the drawer) and by item (units delivered, cases, current stock, low-stock warning).
+- Emergencies: live list with search, detail drawer (state transitions, edit, delivery recording with atomic stock decrement), and creation form (title, category, help type, address, GPS **or** manual latitude/longitude with automatic macrosector lookup, initial state).
 - Interactive map (Leaflet): drag to pan, scroll to zoom, click an official macrosector polygon to select it; map/satellite toggle, zoom buttons, recenter, and fullscreen. Choropleth colors come from live per-sector counts.
   - Base layers: CARTO light (`light_all`, © OpenStreetMap contributors, © CARTO) and Esri World Imagery for satellite.
 - Territory inspector with live event counts, in-process counts, delivered units, and help-type mix per macrosector.
-- Operational alerts derived from live data (low stock, unattended recibido cases) with matching notifications.
+- Operational alerts derived from live data (low stock, unattended recibido cases) in the notification popover.
 - Bodega modal: stock list with low-stock flags, new items, and purchase movements.
-- GPS capture in the Nuevo caso form via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission). On submit the map flies to the exact point.
+- Location capture in the Nuevo caso form: GPS via the browser Geolocation API (requires HTTPS in production, or localhost in development, plus OS/browser permission) or manual latitude/longitude entry. The edit form accepts manual coordinates too. On submit the map flies to the exact point.
 - Desktop, tablet, and mobile layouts. On mobile the inspector becomes a bottom sheet.
 
 ## Notes
@@ -98,6 +102,9 @@ app/
     page.tsx       Dashboard shell and interactions (/panel)
     layout.tsx     Panel metadata
 components/
+  casos-view.tsx                 Cases queue: totals, filters, table
+  ayudas-view.tsx                Delivered aid: totals, filters, case/item tables
+  status-badge.tsx               Shared outline status stamp
   interactive-territory-map.tsx  Leaflet map: tiles, choropleth polygons
   landing-hero-map.tsx           Hero wrapper (map + territory caption)
   emergency-lookup.tsx           Public code lookup (no login)
@@ -107,6 +114,7 @@ lib/
   api.ts             Typed Innova-Back client (NEXT_PUBLIC_API_URL)
   data.ts          Sector reference data (labels, colors)
   macrosectores.ts   GeoJSON loader, official-name join, centroids
+  map-focus.ts       Safe recenter: instant zoom, animated pan only
 public/
   data/
     macrosectores.geojson  Official boundaries (IDE Temuco, WGS84)

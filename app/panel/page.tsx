@@ -25,8 +25,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type L from "leaflet";
+import { AyudasView } from "@/components/ayudas-view";
+import { CasosView } from "@/components/casos-view";
 import { InteractiveTerritoryMap } from "@/components/interactive-territory-map";
+import { StatusBadge } from "@/components/status-badge";
 import { MACROSECTORS, getMacrosector, type AidSlice } from "@/lib/data";
+import { focusMap } from "@/lib/map-focus";
 import {
   ApiError,
   api,
@@ -47,7 +51,7 @@ import {
   type User,
 } from "@/lib/api";
 
-const NAV_ITEMS = ["Panel", "Casos", "Ayudas", "Bodega", "Documentos", "Territorio", "Reportes"];
+const NAV_ITEMS = ["Panel", "Casos", "Ayudas", "Bodega"];
 
 const CATEGORY_OPTIONS: EmergencyCategory[] = [
   "incendio",
@@ -71,17 +75,13 @@ const STOCK_CATEGORIES = ["alimentos", "higiene", "abrigo", "materiales", "otro"
 const STATE_OPTIONS: EmergencyState[] = ["recibida", "en_proceso", "entregada"];
 
 const HELP_COLORS: Record<string, string> = {
-  alimentos: "#4B9279",
-  dinero: "#2876B8",
-  materiales: "#9A6A3A",
-  higiene: "#7652A6",
-  abrigo: "#A3BBAE",
-  otro: "#929D96",
+  alimentos: "#4B9FD4",
+  dinero: "#3574B5",
+  materiales: "#B45309",
+  higiene: "#65A30D",
+  abrigo: "#4B99A5",
+  otro: "#8B8E8D",
 };
-
-function StatusBadge({ tone, children }: { tone: string; children: ReactNode }) {
-  return <span className={`status status--${tone}`}>{children}</span>;
-}
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
@@ -214,6 +214,9 @@ function gpsErrorMessage(error: GeolocationPositionError): string {
 
 function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
   const [gps, setGps] = useState<GpsState>({ status: "idle" });
+  const [locationMode, setLocationMode] = useState<"gps" | "manual">("gps");
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
   const [located, setLocated] = useState<string | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -275,9 +278,37 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
       setSubmitError("La dirección debe tener al menos 3 caracteres.");
       return;
     }
-    if (gps.status !== "ready") {
-      setSubmitError("Captura la ubicación GPS: las coordenadas son obligatorias.");
-      return;
+
+    let latitude: number;
+    let longitude: number;
+
+    if (locationMode === "gps") {
+      if (gps.status !== "ready") {
+        setSubmitError(
+          "Captura la ubicación GPS o cambia a coordenadas manuales.",
+        );
+        return;
+      }
+      latitude = gps.lat;
+      longitude = gps.lng;
+    } else {
+      latitude = Number(manualLat);
+      longitude = Number(manualLng);
+      if (
+        manualLat.trim() === "" ||
+        manualLng.trim() === "" ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude) ||
+        latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180
+      ) {
+        setSubmitError(
+          "Ingresa una latitud entre -90 y 90 y una longitud entre -180 y 180.",
+        );
+        return;
+      }
     }
 
     setBusy(true);
@@ -288,8 +319,8 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
         help_type: helpType,
         title,
         address,
-        latitude: gps.lat,
-        longitude: gps.lng,
+        latitude,
+        longitude,
         state,
       });
     } catch (err) {
@@ -379,50 +410,119 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
             </label>
 
             <div className="field field--full">
-              <span>Ubicación GPS</span>
-              {gps.status === "ready" ? (
-                <div className="gps-ready">
-                  <MapPin size={14} />
-                  <span>
-                    {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}{" "}
-                    <em>±{Math.round(gps.accuracy)} m</em>
-                  </span>
-                  <button
-                    className="gps-clear"
-                    type="button"
-                    onClick={clearGps}
-                    aria-label="Quitar ubicación GPS"
-                  >
-                    <X size={13} />
-                  </button>
-                </div>
-              ) : (
+              <span>Ubicación</span>
+              <div className="location-mode" role="group" aria-label="Método de ubicación">
                 <button
-                  className="gps-button"
                   type="button"
-                  onClick={requestGps}
-                  disabled={gps.status === "locating"}
+                  className={locationMode === "gps" ? "is-active" : ""}
+                  aria-pressed={locationMode === "gps"}
+                  onClick={() => {
+                    setLocationMode("gps");
+                    setSubmitError(null);
+                  }}
                 >
-                  <Crosshair size={14} />
-                  {gps.status === "locating"
-                    ? "Obteniendo ubicación…"
-                    : gps.status === "error"
-                      ? "Reintentar ubicación GPS"
-                      : "Usar mi ubicación actual"}
+                  GPS
                 </button>
-              )}
-              {gps.status === "error" && (
-                <span className="gps-error" role="alert">
-                  {gps.message}
-                </span>
-              )}
-              {gps.status === "idle" && (
-                <span className="gps-hint">
-                  Obligatoria. Requiere permiso del navegador. Funciona en HTTPS o localhost.
-                </span>
-              )}
-              {locatedLabel && (
-                <span className="gps-located">{locatedLabel}</span>
+                <button
+                  type="button"
+                  className={locationMode === "manual" ? "is-active" : ""}
+                  aria-pressed={locationMode === "manual"}
+                  onClick={() => {
+                    setLocationMode("manual");
+                    setSubmitError(null);
+                  }}
+                >
+                  Coordenadas manuales
+                </button>
+              </div>
+
+              {locationMode === "gps" ? (
+                <>
+                  {gps.status === "ready" ? (
+                    <div className="gps-ready">
+                      <MapPin size={14} />
+                      <span>
+                        {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)}{" "}
+                        <em>±{Math.round(gps.accuracy)} m</em>
+                      </span>
+                      <button
+                        className="gps-clear"
+                        type="button"
+                        onClick={clearGps}
+                        aria-label="Quitar ubicación GPS"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="gps-button"
+                      type="button"
+                      onClick={requestGps}
+                      disabled={gps.status === "locating"}
+                    >
+                      <Crosshair size={14} />
+                      {gps.status === "locating"
+                        ? "Obteniendo ubicación…"
+                        : gps.status === "error"
+                          ? "Reintentar ubicación GPS"
+                          : "Usar mi ubicación actual"}
+                    </button>
+                  )}
+                  {gps.status === "error" && (
+                    <span className="gps-error" role="alert">
+                      {gps.message}
+                    </span>
+                  )}
+                  {gps.status === "idle" && (
+                    <span className="gps-hint">
+                      Requiere permiso del navegador. Funciona en HTTPS o localhost.
+                    </span>
+                  )}
+                  {locatedLabel && (
+                    <span className="gps-located">{locatedLabel}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="coords-grid">
+                    <label className="field">
+                      <span>Latitud</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min={-90}
+                        max={90}
+                        placeholder="-38.7359"
+                        value={manualLat}
+                        onChange={(event) => {
+                          setManualLat(event.target.value);
+                          setSubmitError(null);
+                        }}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Longitud</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="any"
+                        min={-180}
+                        max={180}
+                        placeholder="-72.5904"
+                        value={manualLng}
+                        onChange={(event) => {
+                          setManualLng(event.target.value);
+                          setSubmitError(null);
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <span className="gps-hint">
+                    El servidor asignará el macrosector según estas coordenadas.
+                  </span>
+                </>
               )}
             </div>
 
@@ -554,6 +654,25 @@ function EmergencyDrawer({
       return;
     }
 
+    const latitudeRaw = String(data.get("latitude") ?? "").trim();
+    const longitudeRaw = String(data.get("longitude") ?? "").trim();
+    const latitude = latitudeRaw === "" ? emergency.latitude : Number(latitudeRaw);
+    const longitude = longitudeRaw === "" ? emergency.longitude : Number(longitudeRaw);
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      setEditError(
+        "Latitud debe estar entre -90 y 90, longitud entre -180 y 180.",
+      );
+      return;
+    }
+
     setEditBusy(true);
     setEditError(null);
     try {
@@ -562,6 +681,8 @@ function EmergencyDrawer({
         category: String(data.get("category") ?? emergency.category) as EmergencyCategory,
         help_type: String(data.get("help_type") ?? emergency.help_type) as Emergency["help_type"],
         address: String(data.get("address") ?? emergency.address).trim() || emergency.address,
+        latitude,
+        longitude,
       });
       onUpdated(updated);
       setEditing(false);
@@ -747,6 +868,38 @@ function EmergencyDrawer({
                 <span>Dirección</span>
                 <input name="address" defaultValue={emergency.address} required />
               </label>
+              <div className="field field--full">
+                <span>Coordenadas</span>
+                <div className="coords-grid">
+                  <label className="field">
+                    <span>Latitud</span>
+                    <input
+                      name="latitude"
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      defaultValue={emergency.latitude}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Longitud</span>
+                    <input
+                      name="longitude"
+                      type="number"
+                      inputMode="decimal"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      defaultValue={emergency.longitude}
+                    />
+                  </label>
+                </div>
+                <span className="gps-hint">
+                  Si cambian, el servidor reasigna el macrosector.
+                </span>
+              </div>
               {editError && (
                 <p className="form-error" role="alert">
                   {editError}
@@ -988,6 +1141,7 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
 
 export default function HomePage() {
   const router = useRouter();
+  const [view, setView] = useState<"panel" | "casos" | "ayudas">("panel");
   const [selectedId, setSelectedId] = useState("centro");
   const [user, setUser] = useState<User | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -1046,6 +1200,12 @@ export default function HomePage() {
     } catch {
       // Stock failures surface inside the stock modal, not globally.
     }
+  }, []);
+
+  // Allow deep links into the operational queues, e.g. /panel?vista=casos.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("vista");
+    if (requested === "casos" || requested === "ayudas") setView(requested);
   }, []);
 
   useEffect(() => {
@@ -1139,12 +1299,17 @@ export default function HomePage() {
     return [...counts.entries()].map(([helpType, count]) => ({
       label: helpLabel(helpType),
       value: Math.round((count / total) * 100),
-      color: HELP_COLORS[helpType] ?? "#929D96",
+      color: HELP_COLORS[helpType] ?? "#8B8E8D",
     }));
   }, [sectorEmergencies]);
 
   const caseCounts = useMemo(() => {
+    // Every sector starts at zero so the map never falls back to synthetic
+    // reference counts for territories without cases.
     const counts: Record<string, number> = {};
+    for (const sector of MACROSECTORS) {
+      counts[sector.id] = 0;
+    }
     for (const item of emergencies) {
       if (!item.macrosector) continue;
       counts[item.macrosector] = (counts[item.macrosector] ?? 0) + 1;
@@ -1231,9 +1396,39 @@ export default function HomePage() {
     setNewCaseOpen(true);
   }
 
+  function applyView(next: "panel" | "casos" | "ayudas") {
+    setView(next);
+    const url = new URL(window.location.href);
+    if (next === "panel") {
+      url.searchParams.delete("vista");
+    } else {
+      url.searchParams.set("vista", next);
+    }
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
   function handleNav(label: string) {
     closePopovers();
-    if (label === "Panel") return;
+    if (label === "Panel") {
+      applyView("panel");
+      return;
+    }
+    if (label === "Casos") {
+      applyView("casos");
+      if (casesError) void loadEmergencies();
+      return;
+    }
+    if (label === "Ayudas") {
+      applyView("ayudas");
+      if (casesError) void loadEmergencies();
+      return;
+    }
+    if (label === "Bodega") {
+      setStockBusy(true);
+      setStockOpen(true);
+      void loadStock().finally(() => setStockBusy(false));
+      return;
+    }
     showToast(`${label}: módulo en preparación.`);
   }
 
@@ -1271,9 +1466,10 @@ export default function HomePage() {
     if (item.macrosector) {
       setSelectedId(item.macrosector);
     }
-    mapRef.current?.flyTo([item.latitude, item.longitude], 15, {
-      duration: 0.8,
-    });
+    // The map only exists in the panel view; the queue opens the same drawer.
+    if (view === "panel" && mapRef.current) {
+      focusMap(mapRef.current, [item.latitude, item.longitude], 15);
+    }
     setDetailCode(item.code);
   }
 
@@ -1286,9 +1482,9 @@ export default function HomePage() {
     setNewCaseOpen(false);
     setSubmittedSearch("");
     setSearch("");
-    mapRef.current?.flyTo([record.latitude, record.longitude], 16, {
-      duration: 0.8,
-    });
+    if (mapRef.current) {
+      focusMap(mapRef.current, [record.latitude, record.longitude], 16);
+    }
     showToast(`Caso ${record.code} creado.`);
     void loadStock();
   }
@@ -1345,7 +1541,9 @@ export default function HomePage() {
 
   function handleLocate() {
     setSelectedId("centro");
-    mapRef.current?.flyTo([-38.7359, -72.5904], 13, { duration: 0.8 });
+    if (mapRef.current) {
+      focusMap(mapRef.current, [-38.7359, -72.5904], 13);
+    }
     showToast("Vista centrada en Temuco.");
   }
 
@@ -1397,23 +1595,29 @@ export default function HomePage() {
           </a>
 
           <nav className="main-nav" aria-label="Navegación principal">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={`nav-link${item === "Panel" ? " is-active" : ""}`}
-                aria-current={item === "Panel" ? "page" : undefined}
-                onClick={() => handleNav(item)}
-              >
-                {item}
-              </button>
-            ))}
+            {NAV_ITEMS.map((item) => {
+              const active =
+                (view === "casos" && item === "Casos") ||
+                (view === "ayudas" && item === "Ayudas") ||
+                (view === "panel" && item === "Panel");
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  className={`nav-link${active ? " is-active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => handleNav(item)}
+                >
+                  {item}
+                </button>
+              );
+            })}
           </nav>
 
           <div className="topbar-actions">
             <span className="status-pill">
               <span className="live-dot" />
-              {emergencies.length} casos activos
+              {emergencies.length} casos registrados
             </span>
 
             <button className="topbar-primary" type="button" onClick={openNewCase}>
@@ -1555,10 +1759,38 @@ export default function HomePage() {
         </header>
 
         <main
-          className={`workspace${mapMode === "satellite" ? " workspace--satellite" : ""}${
-            inspectorOpen ? " workspace--sheet-open" : ""
-          }`}
+          className={`workspace${
+            view !== "panel" ? " workspace--queue" : ""
+          }${
+            view === "panel" && mapMode === "satellite"
+              ? " workspace--satellite"
+              : ""
+          }${view === "panel" && inspectorOpen ? " workspace--sheet-open" : ""}`}
         >
+          {view === "casos" ? (
+            <CasosView
+              emergencies={emergencies}
+              loading={loadingCases}
+              error={casesError}
+              forbidden={forbidden}
+              role={user?.role}
+              onReload={() => void loadEmergencies()}
+              onNewCase={openNewCase}
+              onSelect={handleCaseSelect}
+            />
+          ) : view === "ayudas" ? (
+            <AyudasView
+              emergencies={emergencies}
+              stockItems={stockItems}
+              loading={loadingCases}
+              error={casesError}
+              forbidden={forbidden}
+              role={user?.role}
+              onReload={() => void loadEmergencies()}
+              onSelect={handleCaseSelect}
+            />
+          ) : (
+            <>
           <div className="map-stage">
             <div className="map-canvas map-canvas--interactive">
               <InteractiveTerritoryMap
@@ -1634,16 +1866,16 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="map-legend" aria-label="Leyenda de casos activos">
+            <div className="map-legend" aria-label="Leyenda de casos registrados">
               <div className="legend-head">
-                <span>Casos activos</span>
-                <span>Este mes</span>
+                <span>Casos registrados</span>
+                <span>Total</span>
               </div>
               <div className="legend-scale" />
               <div className="legend-ticks">
                 <span>0</span>
-                <span>4</span>
-                <span>8</span>
+                <span>3</span>
+                <span>6</span>
                 <span>12+</span>
               </div>
               <span className="legend-note">
@@ -1860,68 +2092,10 @@ export default function HomePage() {
                     </div>
                   )}
                 </Panel>
-
-                <Panel
-                  id="alerts"
-                  icon={<AlertTriangle size={15} />}
-                  title="Alertas operativas"
-                  badge={alerts.length}
-                  collapsed={Boolean(collapsed.alerts)}
-                  onToggle={() => togglePanel("alerts")}
-                >
-                  <div className="alert-list">
-                    {alerts.length === 0 && (
-                      <p className="drawer-empty">Sin alertas operativas.</p>
-                    )}
-                    {alerts.map((alert) => (
-                      <button
-                        className="alert-row"
-                        type="button"
-                        key={alert.id}
-                        onClick={() => handleNotificationSelect(alert)}
-                      >
-                        <span className={`alert-icon alert-icon--${alert.tone}`}>
-                          <AlertGlyph icon={alert.icon} />
-                        </span>
-                        <span className="alert-copy">
-                          <span className="alert-title">{alert.title}</span>
-                          <span className="alert-detail">{alert.detail}</span>
-                        </span>
-                        <span className="alert-count">{alert.count}</span>
-                      </button>
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel
-                  id="quick"
-                  icon={<Plus size={15} />}
-                  title="Accesos rápidos"
-                  collapsed={Boolean(collapsed.quick)}
-                  onToggle={() => togglePanel("quick")}
-                >
-                  <button className="quick-primary" type="button" onClick={openNewCase}>
-                    <Plus size={15} />
-                    Nuevo caso
-                  </button>
-
-                  <div className="quick-grid">
-                    <button
-                      className="quick-action"
-                      type="button"
-                      onClick={() => {
-                        setStockBusy(true);
-                        setStockOpen(true);
-                        void loadStock().finally(() => setStockBusy(false));
-                      }}
-                    >
-                      <Package size={14} />
-                      Revisar bodega
-                    </button>
-                  </div>
-                </Panel>
               </div>
             </aside>
+            </>
+          )}
         </main>
 
         {(notificationOpen || userMenuOpen) && (

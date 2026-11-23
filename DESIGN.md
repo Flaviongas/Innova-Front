@@ -65,11 +65,11 @@ The interface should follow these principles:
 | Professional judgment first | The interface presents evidence and options; it never assigns an aid automatically from an event type. |
 | Contextual | Controls and information appear close to the content they affect. |
 | Modular | Information is organized into independent panels and sections. |
-| Restrained | Green is reserved for brand identity and meaningful interactions. |
+| Restrained | Blue is reserved for brand identity and meaningful interactions. |
 | Dense but legible | Show substantial information without making the interface visually crowded. |
 | Confidential by default | Show the minimum necessary data. Aggregate views are the default for territorial reporting. |
 
-The visual language can be described as *calme visuel*: a predominantly neutral interface with carefully controlled green accents.
+The visual language can be described as *calme visuel*: a predominantly neutral interface with carefully controlled blue accents.
 
 **Important distinction:** The map is the main visualization for territorial information, not a decorative background. Other screens should retain the same visual language without forcing a map into contexts where it is unnecessary. A case detail, a stock table, or a document queue is not improved by adding a map.
 
@@ -180,99 +180,108 @@ Confirm roles and permissions with the municipality. The UI should enforce them 
 
 ## 3. Color system
 
-The palette is built around a forest-green primary color, neutral surfaces, and muted secondary colors. It is the product's visual system, not an assertion of official municipal brand colors. Confirm the use of the official wordmark and any institutional color requirements with the municipality.
+The palette is built around a municipal blue primary color taken from the official Temuco wordmark, with cool neutral surfaces and accent hues sampled from the same logo (cyan, lime, orange, red, navy). It is the product's visual system, not an assertion of official municipal brand colors. Confirm the use of the official wordmark and any institutional color requirements with the municipality.
 
 ### 3.1 Brand palette
 
 | Token | Color |
 | --- | --- |
-| Forest | `#125742` |
-| Deep | `#0F4937` |
-| Medium | `#24765A` |
-| Pale | `#DCEBE3` |
-| Tint | `#EFF5F1` |
+| Primary blue | `#3574B5` |
+| Hover | `#2E649E` |
+| Active | `#275687` |
+| Navy (logo) | `#060C66` |
+| Bright blue (logo) | `#4B9FD4` |
+| Pale | `#D9EDFA` |
+| Tint | `#EFF7FD` |
+| Sky (tint) | `#A9D6F5` |
+
+The multi-colour wordmark is referenced by one restrained device: a 3px accent bar (`--gradient-logo`) across the top of the landing, panel and login headers, running blue → cyan → lime → orange → red. It is the only place where the full logo palette appears together; everywhere else those hues carry meaning (interaction, status, data).
 
 ### 3.2 Neutral palette
 
 | Token | Color |
 | --- | --- |
 | White | `#FFFFFF` |
-| Canvas | `#F7F9F8` |
-| Border | `#E3E9E5` |
-| Muted | `#A0AAA4` |
-| Ink | `#19241F` |
+| Canvas | `#F5F8FB` |
+| Border | `#E1E8F0` |
+| Border subtle | `#EEF3F8` |
+| Border strong | `#C9D5E2` |
+| Muted | `#8A99A9` |
+| Ink | `#102133` |
+| Surface dark | `#0B1F3A` |
+| Surface inverse | `#0E1726` |
 
 ### 3.3 Feedback and semantic colors
 
 | Token | Color |
 | --- | --- |
-| Success | `#27845F` |
-| Success strong (text on light) | `#1D6A4B` |
-| Warning | `#C58A32` |
-| Warning strong (text on light) | `#8A5A17` |
-| Warning wash | `#FBF4E7` |
-| Warning border | `#F0DFC0` |
-| Danger | `#B94D49` |
-| Danger strong (text on light) | `#9A3F3B` |
-| Danger wash | `#FBF1F0` |
-| Information | `#377EAE` |
-| Information strong (text on light) | `#2C6690` |
+| Success (logo green) | `#4DB863` |
+| Success strong (text on light) | `#2F7A45` |
+| Warning (logo orange) | `#E8711F` |
+| Warning strong (text on light) | `#A64A0A` |
+| Warning wash | `#FFF4E6` |
+| Warning border | `#F7D3A7` |
+| Danger (logo red) | `#E42D24` |
+| Danger strong (text on light) | `#B3261E` |
+| Danger wash | `#FDECEA` |
+| Information (logo blue) | `#4B9FD4` |
+| Information strong (text on light) | `#1D5E8C` |
 
-The base tokens are for fills and icons. The `strong` variants exist because the base colors do not reach sufficient contrast as small text on white; always use the strong variant for status text. Washes are reserved for callouts that need a tinted background.
+The base tokens are for fills and icons. The `strong` variants exist because the bright logo hues do not reach sufficient contrast as small text on white; always use the strong variant for status text. Washes are reserved for callouts that need a tinted background.
 
 ### 3.4 Semantic assignments
 
 | Token | Color | Usage |
 | --- | --- | --- |
-| `primary` | `#125742` | Primary buttons, active navigation, selected map areas, selected polygon outline |
-| `primary-hover` | `#0F4937` | Hovered primary actions |
-| `primary-active` | `#0B3F30` | Pressed states, dark brand surfaces |
-| `primary-deep` | `#082f24` | Deepest brand gradient stops |
-| `primary-subtle` | `#EFF5F1` | Selected rows, current case, subtle highlights |
+| `primary` | `#3574B5` | Primary buttons, active navigation, selected map areas, selected polygon outline |
+| `primary-hover` | `#2E649E` | Hovered primary actions |
+| `primary-active` | `#275687` | Pressed states, dark brand surfaces |
+| `primary-deep` | `#060C66` | Deepest brand gradient stops (logo navy) |
+| `primary-subtle` | `#EFF7FD` | Selected rows, current case, subtle highlights |
 | `background` | `#FFFFFF` | Main application surface |
-| `surface-secondary` | `#F7F9F8` | Secondary content surfaces |
-| `surface-dark` | `#1F3528` | Map stage in satellite mode |
-| `surface-inverse` | `#19241F` | Toasts and dark floating surfaces |
-| `border` | `#E3E9E5` | Dividers, card borders, input outlines |
-| `border-subtle` | `#EEF2EF` | Hairline dividers inside panels, progress tracks |
-| `border-strong` | `#CDD7D0` | Emphasized borders, scrollbars, drag handles |
-| `text-primary` | `#19241F` | Headings and primary text |
-| `text-secondary` | `#69766F` | Descriptions and supporting information |
-| `text-muted` | `#929D96` | Disabled controls and tertiary information |
-| `mint` | `#A9CDBB` | Light green accents on dark surfaces |
+| `surface-secondary` | `#F5F8FB` | Secondary content surfaces |
+| `surface-dark` | `#0B1F3A` | Map stage in satellite mode |
+| `surface-inverse` | `#0E1726` | Toasts and dark floating surfaces |
+| `border` | `#E1E8F0` | Dividers, card borders, input outlines |
+| `border-subtle` | `#EEF3F8` | Hairline dividers inside panels, progress tracks |
+| `border-strong` | `#C9D5E2` | Emphasized borders, scrollbars, drag handles |
+| `text-primary` | `#102133` | Headings and primary text |
+| `text-secondary` | `#5A6B7D` | Descriptions and supporting information |
+| `text-muted` | `#8A99A9` | Disabled controls and tertiary information |
+| `sky` | `#A9D6F5` | Light cyan accents on dark surfaces |
 
 ### 3.5 Color usage rules
 
-- Green communicates interaction, selection, and brand identity. It is not a decorative wash.
+- Blue communicates interaction, selection, and brand identity. It is not a decorative wash.
 - White is the dominant component surface.
-- Light gray-green is used for secondary surfaces.
-- Semantic colors indicate actual statuses, not decoration.
-- Because the brand and the success color are both green, **always pair status color with a text label or icon**. Never rely on color alone.
+- Cool gray-blue is used for secondary surfaces.
+- Semantic colors indicate actual statuses, not decoration. Green, orange, and red are drawn from the logo but remain reserved for success, warning, and danger.
+- Because the primary blue and the information blue are adjacent hues, **always pair status color with a text label or icon**. Never rely on color alone.
 - Do not introduce additional saturated colors unless they encode meaningful information.
 - Use red for destructive actions, errors, “Rechazada”, “Agotado”, and the “Urgente” badge. Do not use red merely to draw attention.
 - Every color in the interface comes from the token tables above. No one-off hex values: hairlines use `border-subtle`, status text uses the `strong` variants, white surfaces use `surface`, white text on dark uses `text-inverse`. Translucent white overlays (`rgba(255, 255, 255, …)`) are allowed for glass effects over maps and photos.
 
 ### 3.6 Data visualization palette
 
-Use category colors for aid types. Use the territorial scale for map intensity and ordered measures. Do not use semantic status colors as category colors.
+Use category colors for aid types. Use the territorial scale for map intensity and ordered measures. Do not use semantic status colors as category colors; the category hues below are deliberately darker or more muted than their status neighbours.
 
 | Aid category | Suggested color |
 | --- | --- |
-| Bienes de bodega | `#4B9279` |
-| Ayuda monetaria | `#2876B8` |
-| Materiales de construcción | `#9A6A3A` |
-| Apoyo social / derivación | `#7652A6` |
-| Otras ayudas | `#A3BBAE` |
+| Bienes de bodega | `#4B9FD4` |
+| Ayuda monetaria | `#3574B5` |
+| Materiales de construcción | `#B45309` |
+| Apoyo social / derivación | `#65A30D` |
+| Otras ayudas | `#8B8E8D` |
 
 **Territorial scale** — use for choropleths and ordered intensity, from low to high. Mirrored by `territoryFill()` in `lib/data.ts` so the map legend and the polygon fills can never disagree:
 
 | Step | Color | Cases |
 | --- | --- | --- |
-| 1 | `#DCEBE3` | 0–2 |
-| 2 | `#A9CDBB` | 3–5 |
-| 3 | `#6FA98F` | 6–8 |
-| 4 | `#3C8267` | 9–11 |
-| 5 | `#125742` | 12+ |
+| 1 | `#EFF7FD` | 0–2 |
+| 2 | `#D9EDFA` | 3–5 |
+| 3 | `#A9D6F5` | 6–8 |
+| 4 | `#4B9FD4` | 9–11 |
+| 5 | `#3574B5` | 12+ |
 
 **Chart rules:**
 
@@ -462,7 +471,7 @@ Components should be reusable across modules. The `ui/` layer contains primitive
 
 **Primary navigation:**
 
-`Panel · Casos · Ayudas · Bodega · Documentos · Territorio · Reportes`
+`Panel · Casos · Ayudas · Bodega`
 
 **Account area:** user name, role, “Administración” when permitted, “Cerrar sesión”.
 
@@ -472,14 +481,14 @@ Components should be reusable across modules. The `ui/` layer contains primitive
 | Background | White |
 | Horizontal padding | 24–32px |
 | Bottom border | 1px neutral |
-| Active indicator | 2px primary-green underline |
+| Active indicator | 2px primary-blue underline |
 | Position | Sticky at top |
 
 **Rules:**
 
 - Do not create a different navigation style for every page.
 - Role-based items are hidden when the user has no access. Do not show a broken or empty module.
-- On mobile, primary navigation collapses into a drawer. Reserve a four-item bottom bar (`Panel`, `Casos`, `Bodega`, `Territorio`) with “Más” for a validated field-use mode; do not use both patterns at once.
+- On mobile, primary navigation collapses into a drawer. Reserve a four-item bottom bar (`Panel`, `Casos`, `Ayudas`, `Bodega`) for a validated field-use mode; do not use both patterns at once.
 - The current section is always visible in the header.
 
 ### 6.2 Buttons
@@ -516,8 +525,8 @@ Components should be reusable across modules. The `ui/` layer contains primitive
 | Height | 38–42px |
 | Border | `1px solid #E3E9E5` |
 | Background | White |
-| Focus border | Primary green |
-| Focus ring | Subtle green translucent outline |
+| Focus border | Primary blue |
+| Focus ring | Subtle blue translucent outline |
 | Placeholder | Secondary text |
 | Label | Always visible when the input requires context |
 
@@ -828,7 +837,7 @@ The map is the most distinctive workspace for territorial analysis. It is not th
 
 - Desaturated cartographic colors.
 - Light gray roads.
-- Muted green geographic areas.
+- Muted blue-gray geographic areas.
 - Subtle labels.
 - Low-contrast base features.
 - Stronger contrast reserved for application overlays, selected areas, and data layers.
@@ -851,7 +860,7 @@ The default map view is a choropleth of macrosectors for a selected metric and p
 
 - Metrics: personas únicas, atenciones, monto entregado, conteo de ayudas por tipo.
 - Period: month, quarter, year, or custom range.
-- Legend: sequential green scale with explicit values and unit.
+- Legend: sequential blue scale with explicit values and unit.
 - The title states the metric, period, and unit.
 - A table alternative is always available.
 - Rural areas use a pattern or outline where needed; do not rely on color alone.
@@ -1002,7 +1011,7 @@ The Panel is the operational home. It should answer:
 
 Recommended composition:
 
-1. Alert strip: stock crítico, regularizaciones pendientes, documentos observados.
+1. Operational alerts in the notification popover: stock crítico, casos recibidos sin atender.
 2. Metric cards: casos activos, atenciones del mes, ayudas entregadas, pendientes de regularización.
 3. Recent cases table.
 4. Today’s visits.
@@ -1012,12 +1021,14 @@ Do not turn the Panel into a chart gallery. Charts belong in Territorio and Repo
 
 ### 8.4 Casos
 
-**Case queue:**
+**Case queue (implemented at `/panel?vista=casos`):**
 
-- Filters: status, urgency, aid type, program, macrosector, assigned professional, date range.
-- Search by folio, RUT, name, or address.
+- Summary strip: total, recibidas, en proceso, entregadas. Counts come from the API; empty territories stay at zero.
+- Filters: estado, categoría, tipo de ayuda. Search by código, título, dirección, sector, category or help type.
+- Default sort: most recent update first. The result count is always visible above the table.
+- Row click opens the shared case drawer for state changes, editing, and delivery recording.
+- Loading, error, forbidden, empty and no-match states each get their own message with a recovery action where possible.
 - Saved filters are useful but **to confirm**.
-- Default sort: most recent or urgency, depending on the queue. Make the sort visible.
 
 **New case:**
 
@@ -1059,6 +1070,13 @@ The case detail is the core workspace. It should make the following obvious:
 ### 8.5 Ayudas
 
 The Ayudas module focuses on delivery and follow-through, not intake.
+
+**Implemented in the SPA (`/panel?vista=ayudas`):**
+
+- Summary strip: unidades entregadas, casos con entregas, artículos distintos, casos entregados.
+- Two groupings: **Por caso** (click opens the shared case drawer) and **Por artículo** (units delivered, cases, current stock, low-stock warning).
+- Search by item, code, title or sector; filters by help type, stock category and case state.
+- No deliveries yet is a first-class empty state that points to the case drawer.
 
 **Views:**
 
@@ -1183,9 +1201,9 @@ Every interactive component should define:
 | --- | --- |
 | Default | Neutral border and background |
 | Hover | Subtle background change |
-| Focus | Visible green focus ring |
+| Focus | Visible blue focus ring |
 | Active | Primary color emphasis |
-| Selected | Light green background and green indicator |
+| Selected | Light blue background and blue indicator |
 | Disabled | Reduced contrast, no interaction, explained reason |
 | Loading | Progress indicator, stable layout |
 | Error | Semantic danger color and explanatory text |
@@ -1193,7 +1211,7 @@ Every interactive component should define:
 
 **Interaction principles:**
 
-- **Navigation:** the active page uses the green underline; do not create multiple active styles.
+- **Navigation:** the active page uses the blue underline; do not create multiple active styles.
 - **Selection:** selected rows, cases, and filters use a visible indicator and `primary-subtle` background. Never communicate selection by color alone.
 - **Panels:** expand and collapse without unnecessary reflow of the underlying workspace.
 - **Search:** support keyboard submission, debouncing where appropriate, and explicit loading feedback.
@@ -1571,55 +1589,64 @@ Future primitives from §6 (Table, Tabs, Accordion, Timeline) go in `components/
 
 ```css
 :root {
-  --color-primary: #125742;
-  --color-primary-hover: #0f4937;
-  --color-primary-active: #0b3f30;
-  --color-primary-deep: #082f24;
-  --color-primary-medium: #24765a;
-  --color-primary-subtle: #eff5f1;
-  --color-primary-light: #dcebe3;
-  --color-focus: #24765a;
-  --color-focus-ring: rgba(36, 118, 90, 0.24);
+  --color-primary: #3574b5;
+  --color-primary-hover: #2e649e;
+  --color-primary-active: #275687;
+  --color-primary-deep: #060c66;
+  --color-primary-medium: #4b9fd4;
+  --color-primary-subtle: #eff7fd;
+  --color-primary-light: #d9edfa;
+  --color-focus: #3574b5;
+  --color-focus-ring: rgba(53, 116, 181, 0.28);
+  --gradient-logo: linear-gradient(
+    90deg,
+    #3574b5 0%,
+    #4b9fd4 20%,
+    #4db863 40%,
+    #9ad34e 58%,
+    #e8711f 80%,
+    #e42d24 100%
+  );
 
-  --color-background: var(--color-surface);
+  --color-background: #ffffff;
   --color-surface: #ffffff;
-  --color-surface-secondary: #f7f9f8;
-  --color-surface-dark: #1f3528;
-  --color-surface-inverse: #19241f;
-  --color-border: #e3e9e5;
-  --color-border-subtle: #eef2ef;
-  --color-border-strong: #cdd7d0;
+  --color-surface-secondary: #f5f8fb;
+  --color-surface-dark: #0b1f3a;
+  --color-surface-inverse: #0e1726;
+  --color-border: #e1e8f0;
+  --color-border-subtle: #eef3f8;
+  --color-border-strong: #c9d5e2;
 
-  --color-text-primary: #19241f;
-  --color-text-secondary: #69766f;
-  --color-text-muted: #929d96;
+  --color-text-primary: #102133;
+  --color-text-secondary: #5a6b7d;
+  --color-text-muted: #8a99a9;
   --color-text-inverse: #ffffff;
-  --color-mint: #a9cdbb;
+  --color-sky: #a9d6f5;
 
-  --color-success: #27845f;
-  --color-success-strong: #1d6a4b;
-  --color-warning: #c58a32;
-  --color-warning-strong: #8a5a17;
-  --color-warning-bg: #fbf4e7;
-  --color-warning-border: #f0dfc0;
-  --color-danger: #b94d49;
-  --color-danger-strong: #9a3f3b;
-  --color-danger-subtle: #fbf1f0;
-  --color-info: #377eae;
-  --color-info-strong: #2c6690;
+  --color-success: #4db863;
+  --color-success-strong: #2f7a45;
+  --color-warning: #e8711f;
+  --color-warning-strong: #a64a0a;
+  --color-warning-bg: #fff4e6;
+  --color-warning-border: #f7d3a7;
+  --color-danger: #e42d24;
+  --color-danger-strong: #b3261e;
+  --color-danger-subtle: #fdecea;
+  --color-info: #4b9fd4;
+  --color-info-strong: #1d5e8c;
 
-  --map-land: #e9eeea;
-  --map-water: #cfe1dd;
-  --map-road: #f4f6f5;
-  --map-boundary: #a0aaa4;
-  --map-label: #69766f;
+  --map-land: #e8eef4;
+  --map-water: #bbddf5;
+  --map-road: #f8fafc;
+  --map-boundary: #9aa9b8;
+  --map-label: #5a6b7d;
 
   /* Choropleth scale, low to high. Mirrored by territoryFill() in lib/data.ts. */
-  --map-scale-1: #dcebe3;
-  --map-scale-2: #a9cdbb;
-  --map-scale-3: #6fa98f;
-  --map-scale-4: #3c8267;
-  --map-scale-5: #125742;
+  --map-scale-1: #eff7fd;
+  --map-scale-2: #d9edfa;
+  --map-scale-3: #a9d6f5;
+  --map-scale-4: #4b9fd4;
+  --map-scale-5: #3574b5;
 
   --font-family: var(--font-inter), "Inter", -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -1652,30 +1679,16 @@ Future primitives from §6 (Table, Tabs, Accordion, Timeline) go in `components/
   --radius-3xl: 16px;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 3px rgba(15, 35, 25, 0.08);
-  --shadow-md: 0 4px 12px rgba(15, 35, 25, 0.1);
-  --shadow-lg: 0 8px 24px rgba(15, 35, 25, 0.14);
-  --shadow-panel: 0 4px 14px rgba(15, 35, 25, 0.07);
+  --shadow-sm: 0 1px 3px rgba(10, 25, 50, 0.08);
+  --shadow-md: 0 4px 12px rgba(10, 25, 50, 0.1);
+  --shadow-lg: 0 8px 24px rgba(10, 25, 50, 0.14);
+  --shadow-panel: 0 4px 14px rgba(10, 25, 50, 0.07);
 
   --navbar-height: 64px;
   --inspector-width: 380px;
   --content-max-width: 1440px;
 }
 
-
-### 13.3 Component styling contract
-
-Expose controlled variants instead of arbitrary styling:
-
-```tsx
-<Button variant="primary" size="md" loading={false}>
-  Registrar evaluación
-</Button>
-```
-
-```tsx
-<StatusBadge status="pending_regularization" />
-```
 
 ```tsx
 <TerritorySelect
@@ -1773,8 +1786,9 @@ Use this checklist during implementation and code review.
 
 | Element | Specification |
 | --- | --- |
-| Primary color | **Forest Green** `#125742` |
+| Primary color | **Municipal Blue** `#3574B5` |
 | Primary surface | **Neutral White** `#FFFFFF` |
+| Accent palette | **Logo blue** `#4B9FD4` · **green** `#4DB863` · **lime** `#9AD34E` · **orange** `#E8711F` · **red** `#E42D24` · **navy** `#060C66` |
 | Typography | **Inter** — Display/Title scale for heroes and sections, tabular numerals for operations |
 | Language | **Spanish (Chile)** — `es-CL` |
 | Iconography | **Lucide** — inline at text size, no containers |
@@ -1784,13 +1798,13 @@ Use this checklist during implementation and code review.
 | Workspace pattern | **Primary workspace + contextual inspector** |
 | Primary map use | **Territorial analysis**, not individual case browsing |
 | Default map data | **Official polygons** (vendored), choropleth by active cases |
-| Interaction language | **Forest green** for selection and primary actions |
+| Interaction language | **Municipal blue** for selection and primary actions |
 | Status language | **Outline stamps** with text; never color alone |
 | Privacy default | **Masked, role-based, aggregate** |
 
 **Design identity:**
 
-A municipal operations interface with a consistent navigation shell, neutral information surfaces, forest-green interaction language, modular contextual panels, and predictable responsive behavior. The map anchors territorial analysis; the case workspace anchors daily work; documents and stock remain first-class operational modules.
+A municipal operations interface with a consistent navigation shell, cool neutral information surfaces, municipal-blue interaction language, modular contextual panels, and predictable responsive behavior. The map anchors territorial analysis; the case workspace anchors daily work; documents and stock remain first-class operational modules.
 
 **Principal recommendation:**
 

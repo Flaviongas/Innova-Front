@@ -19,17 +19,17 @@ export type Macrosector = {
 };
 
 const AID_MIX: AidSlice[] = [
-  { label: "Bienes de bodega", value: 42, color: "#4B9279" },
-  { label: "Ayuda monetaria", value: 31, color: "#2876B8" },
-  { label: "Materiales", value: 19, color: "#9A6A3A" },
-  { label: "Apoyo social", value: 8, color: "#7652A6" },
+  { label: "Bienes de bodega", value: 42, color: "#4B9FD4" },
+  { label: "Ayuda monetaria", value: 31, color: "#3574B5" },
+  { label: "Materiales", value: 19, color: "#B45309" },
+  { label: "Apoyo social", value: 8, color: "#65A30D" },
 ];
 
 const SELECTED_AID_MIX: AidSlice[] = [
-  { label: "Bienes de bodega", value: 46, color: "#4B9279" },
-  { label: "Ayuda monetaria", value: 28, color: "#2876B8" },
-  { label: "Materiales", value: 18, color: "#9A6A3A" },
-  { label: "Apoyo social", value: 8, color: "#7652A6" },
+  { label: "Bienes de bodega", value: 46, color: "#4B9FD4" },
+  { label: "Ayuda monetaria", value: 28, color: "#3574B5" },
+  { label: "Materiales", value: 18, color: "#B45309" },
+  { label: "Apoyo social", value: 8, color: "#65A30D" },
 ];
 
 export const MACROSECTORS: Macrosector[] = [
@@ -175,9 +175,9 @@ export function getMacrosector(id: string): Macrosector {
 }
 
 export function territoryFill(cases: number): string {
-  if (cases >= 12) return "#125742";
-  if (cases >= 9) return "#3C8267";
-  if (cases >= 6) return "#6FA98F";
-  if (cases >= 3) return "#A9CDBB";
-  return "#DCEBE3";
+  if (cases >= 12) return "#3574B5";
+  if (cases >= 9) return "#4B9FD4";
+  if (cases >= 6) return "#A9D6F5";
+  if (cases >= 3) return "#D9EDFA";
+  return "#EFF7FD";
 }
