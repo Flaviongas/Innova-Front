@@ -30,6 +30,7 @@ export type CasosViewProps = {
   error: string | null;
   forbidden: boolean;
   role?: string;
+  scopeLabel?: string;
   onReload: () => void;
   onNewCase: () => void;
   onSelect: (item: Emergency) => void;
@@ -64,6 +65,7 @@ export function CasosView({
   error,
   forbidden,
   role,
+  scopeLabel = "Ciudad",
   onReload,
   onNewCase,
   onSelect,
@@ -128,8 +130,10 @@ export function CasosView({
           <span className="eyebrow">Gestión operativa</span>
           <h1>Casos</h1>
           <p>
-            Cola completa de emergencias y ayudas registradas. Selecciona un
-            caso para revisar su ficha, entregas y estado.
+            {scopeLabel === "Ciudad"
+              ? "Cola completa de emergencias y ayudas registradas."
+              : `Emergencias y ayudas registradas en ${scopeLabel}.`}{" "}
+            Selecciona un caso para revisar su ficha, entregas y estado.
           </p>
         </div>
         <div className="queue-head-actions">

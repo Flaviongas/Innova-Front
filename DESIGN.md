@@ -983,12 +983,8 @@ Navigation · Case context · Account · Alerts
 
 Panel
 Casos
-Ayudas
+Indicadores
 Bodega
-Documentos
-Territorio
-Reportes
-Administración
 
 Shared component and token system
 Buttons · Inputs · Cards · Tables · Filters · Dialogs · Timeline · Badges
@@ -1003,7 +999,7 @@ Buttons · Inputs · Cards · Tables · Filters · Dialogs · Timeline · Badges
 | Nuevo caso | Form with context aside | Intake form |
 | Detalle del caso | Context bar + tabs + inspector | Case sections, timeline |
 | Evaluación | Form with context aside | Evaluation form |
-| Ayudas | Table + detail drawer | Aid table |
+| Indicadores | Report sheet + chart grid | KPIs, monthly bars, territorial ranking, heatmap |
 | Bodega | Metric strip + table | Stock table |
 | Documentos | Table + preview | Document tracker |
 | Territorio | Map + inspector | Choropleth, legend, territory summary |
@@ -1080,27 +1076,56 @@ The case detail is the core workspace. It should make the following obvious:
 - Which documents are missing or blocked.
 - What the next action is.
 
-### 8.5 Ayudas
+### 8.5 Indicadores
 
-The Ayudas module focuses on delivery and follow-through, not intake.
+The Indicadores view is the analytical screen of the panel: activity and deliveries for a period and a territory, without leaving the operational workspace.
 
-**Views:**
+**Global sector selector**
 
-- Entregas: all aid records, with status and blockers.
-- Pendientes de regularización: urgent deliveries awaiting paperwork.
-- Ayudas monetarias: cases awaiting authorization or payment.
-- Materiales de construcción: quantification, transport, and delivery coordination.
+- A `Territorio` control in the topbar offers **Ciudad** plus the macrosectors.
+- The selection is shared by the map, the Territorio inspector, the recent-cases list, the Casos queue and Indicadores.
+- **Ciudad** clears the polygon highlight, fits the map to all sectors and shows citywide totals. The default selection is **Centro**.
 
-**Aid detail:**
+**Period**
 
-- Case and person context.
-- Aid type and program.
-- Items or amount.
-- Status and blockers.
-- Required documents.
-- Delivery or payment record.
-- Regularization tasks, when applicable.
-- Timeline.
+- `Últimos N meses`, with N selectable from 1 to 12 and ending at the current month.
+- Monthly buckets for the trend.
+
+**Layout**
+
+- One report sheet on the secondary canvas, not a wall of identical cards.
+- Lead summary: one dominant figure (solicitudes creadas) with a compact ledger for delivered, units and amount.
+- Hero monthly bars on a baseline, without widget-style tracks.
+- Two analytical columns: needs and deliveries on the left; territorial ranking and current state on the right.
+- Horizontal bars for need, delivery and territorial comparisons. Needs and deliveries use the aid palette; the citywide ranking uses one series colour, with the selected sector emphasized. Fills are solid, never gradients.
+- Full-width GitHub-style daily calendar (weeks as columns, one square per day) with month labels, a Menos→Más legend and an active-days caption.
+- Coverage note and source/last-update caption.
+
+**Metrics and rules**
+
+- **Solicitud** = one emergency record.
+- **Tipo de necesidad** = `help_type`. Delivery charts reuse the need dimension so both screens stay comparable.
+- KPIs: solicitudes creadas, current state of those requests, delivered units and delivered CLP.
+- The state snapshot describes the period cohort; it is not a historical funnel.
+- Territorial ranking uses a single series color with the selected sector highlighted, plus a separate muted “Sin sector” row. It always shows the whole city; the rest of the dashboard is scoped by the selector.
+- Need categories use the documented aid palette; status colors are reserved for state.
+- Every chart states the metric, unit and period. Values use `es-CL` and tabular numerals.
+
+**Export**
+
+- **Exportar** opens a dialog with two scopes: the period currently shown, or the most recent month.
+- Sections are selectable: executive summary, monthly series, needs, territorial ranking, deliveries, current state and frequency.
+- The client generates a DOCX with the report title, period, territory, demo stamp, selected tables and a page-number footer. No server call and no personal data.
+- The filename carries the territory and range, e.g. `indicadores-centro-nov-2026.docx`.
+- If the demo data is active, the document says **Datos de demostración** in its header.
+
+**Data**
+
+- The screen is fed by `GET /api/admin/dashboard` through `loadDashboardStats()`; the UI never branches on the source.
+- `months` is 1–12 and `sector` is the backend canonical id (`costanera-del-cautin`); the adapter normalizes ids back to the frontend form.
+- The daily calendar renders from the per-day series; until the backend serves it, the section shows a pending note and the DOCX falls back to weekday/hour slots.
+- `amount_clp` covers cash deliveries only; product valuation is out of scope.
+- Never present simulated values as production figures.
 
 ### 8.6 Bodega
 

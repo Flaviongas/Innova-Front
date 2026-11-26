@@ -167,6 +167,60 @@ export type DeliveredLine = {
   quantity: number;
 };
 
+/** Raw aggregate payload from `GET /api/admin/dashboard`. */
+export type DashboardApiResponse = {
+  meta: {
+    generated_at: string;
+    timezone: string;
+    months: number;
+    period: { from: string; to: string };
+    sector: string | null;
+    sector_label: string;
+    ranking_scope: string;
+  };
+  totals: {
+    requests: number;
+    delivered: number;
+    product_units: number;
+    product_deliveries: number;
+    money_deliveries: number;
+    delivered_units: number;
+    amount_clp: number;
+  };
+  by_need: Array<{ help_type: string; count: number }>;
+  by_category: Array<{ category: string; count: number }>;
+  by_delivery_need: Array<{
+    help_type: string;
+    product_units: number;
+    product_deliveries: number;
+    money_deliveries: number;
+    delivered_units: number;
+    amount_clp: number;
+  }>;
+  by_sector: Array<{
+    macrosector: string | null;
+    name: string;
+    count: number;
+    product_units: number;
+    product_deliveries: number;
+    money_deliveries: number;
+    delivered_units: number;
+    amount_clp: number;
+  }>;
+  status: Array<{ state: string; count: number }>;
+  monthly: Array<{ month: string; requests: number }>;
+  heatmap: {
+    hours: number[];
+    rows: Array<{
+      weekday: number;
+      cells: Array<{ hour: number; count: number }>;
+    }>;
+  };
+  /** Per-day counts. Pending backend addition; absent until then. */
+  daily?: Array<{ date: string; count: number }>;
+  coverage: { located: number; unlocated: number };
+};
+
 export type Emergency = {
   id: number;
   code: string;
@@ -281,6 +335,15 @@ export const api = {
     return request<{ emergencies: Emergency[] }>("/api/admin/emergencies", {
       auth: true,
     });
+  },
+
+  getDashboardStats(months: number, sectorId: string | null) {
+    const params = new URLSearchParams({ months: String(months) });
+    if (sectorId) params.set("sector", sectorId);
+    return request<DashboardApiResponse>(
+      `/api/admin/dashboard?${params.toString()}`,
+      { auth: true },
+    );
   },
 
   createEmergency(input: CreateEmergencyInput) {

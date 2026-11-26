@@ -93,7 +93,7 @@ function resolveTiles(kind: "MAP" | "SATELLITE"): TileConfig {
 }
 
 type InteractiveTerritoryMapProps = {
-  selectedId: string;
+  selectedId: string | null;
   onSelect: (id: string) => void;
   mapMode: "map" | "satellite";
   onMapReady?: (map: L.Map) => void;
@@ -191,7 +191,7 @@ function tooltipFor(
 
 function restyleLayer(
   layer: L.GeoJSON,
-  selectedId: string,
+  selectedId: string | null,
   counts?: Record<string, number>,
   showCounts = true,
   choropleth = true,
@@ -366,11 +366,16 @@ export function InteractiveTerritoryMap({
           const exact = focusPointRef.current;
           if (exact) {
             focusMap(map, exact, Math.max(map.getZoom(), focusZoomRef.current));
-          } else {
+          } else if (selectedRef.current) {
             const initial = centroidsRef.current.get(selectedRef.current);
             if (initial) {
               focusMap(map, initial, Math.max(map.getZoom(), 13));
             }
+          } else {
+            map.fitBounds(layer.getBounds(), {
+              padding: [24, 24],
+              animate: false,
+            });
           }
         } catch {
           if (!cancelled) {
@@ -390,7 +395,7 @@ export function InteractiveTerritoryMap({
       }
     }
 
-    function applySelection(id: string) {
+    function applySelection(id: string | null) {
       const layer = geoLayerRef.current;
       if (!layer) return;
       restyleLayer(
@@ -531,6 +536,14 @@ export function InteractiveTerritoryMap({
       showCountsRef.current,
       choroplethRef.current,
     );
+
+    if (!selectedId) {
+      map.fitBounds(layer.getBounds(), {
+        padding: [24, 24],
+        animate: false,
+      });
+      return;
+    }
 
     const exact = focusPointRef.current;
     if (exact) {

@@ -3,6 +3,7 @@
 import {
   AlertTriangle,
   Bell,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -12,6 +13,7 @@ import {
   Crosshair,
   Landmark,
   Layers,
+  Loader2,
   LogOut,
   MapPin,
   Maximize2,
@@ -22,11 +24,13 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type L from "leaflet";
 import { CasosView } from "@/components/casos-view";
+import { IndicadoresView } from "@/components/indicadores-view";
 import { InteractiveTerritoryMap } from "@/components/interactive-territory-map";
+import { SectorPicker } from "@/components/sector-picker";
 import { StatusBadge } from "@/components/status-badge";
 import { MACROSECTORS, categoryFill, getMacrosector, type AidSlice } from "@/lib/data";
 import { focusMap } from "@/lib/map-focus";
@@ -50,7 +54,7 @@ import {
   type User,
 } from "@/lib/api";
 
-const NAV_ITEMS = ["Panel", "Casos", "Bodega"];
+const NAV_ITEMS = ["Panel", "Casos", "Indicadores", "Bodega"];
 
 const CATEGORY_OPTIONS: EmergencyCategory[] = [
   "incendio",
@@ -221,9 +225,41 @@ function gpsErrorMessage(error: GeolocationPositionError): string {
 
 import { forwardGeocode, reverseGeocode } from "@/lib/geocode";
 
+const OCR_SAMPLES = [
+  {
+    title: "Incendio en vivienda",
+    category: "incendio" as EmergencyCategory,
+    helpType: "alimentos" as EmergencyHelpType,
+    address: "Prat 123, Temuco",
+    latitude: "-38.7359",
+    longitude: "-72.5904",
+  },
+  {
+    title: "Anegamiento en pasaje",
+    category: "inundacion" as EmergencyCategory,
+    helpType: "higiene" as EmergencyHelpType,
+    address: "Los Aromos 887, Temuco",
+    latitude: "-38.7450",
+    longitude: "-72.6000",
+  },
+  {
+    title: "Voladura de techo",
+    category: "temporal" as EmergencyCategory,
+    helpType: "abrigo" as EmergencyHelpType,
+    address: "Pasaje Río Bueno 45, Temuco",
+    latitude: "-38.7200",
+    longitude: "-72.5800",
+  },
+];
+
 function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
   const [gps, setGps] = useState<GpsState>({ status: "idle" });
   const [locationMode, setLocationMode] = useState<"gps" | "manual">("gps");
+  const [caseTitle, setCaseTitle] = useState("");
+  const [caseCategory, setCaseCategory] =
+    useState<EmergencyCategory>("incendio");
+  const [caseHelpType, setCaseHelpType] =
+    useState<EmergencyHelpType>("alimentos");
   const [address, setAddress] = useState("");
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
@@ -232,6 +268,52 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const [geoBusy, setGeoBusy] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<
+    "idle" | "processing" | "done" | "error"
+  >("idle");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoName, setPhotoName] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const ocrTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (ocrTimerRef.current) window.clearTimeout(ocrTimerRef.current);
+    },
+    [],
+  );
+
+  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setOcrStatus("error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => setOcrStatus("error");
+    reader.onload = () => {
+      setPhotoPreview(typeof reader.result === "string" ? reader.result : null);
+      setPhotoName(file.name);
+      setOcrStatus("processing");
+      if (ocrTimerRef.current) window.clearTimeout(ocrTimerRef.current);
+      ocrTimerRef.current = window.setTimeout(() => {
+        const sample = OCR_SAMPLES[file.size % OCR_SAMPLES.length];
+        setCaseTitle(sample.title);
+        setCaseCategory(sample.category);
+        setCaseHelpType(sample.helpType);
+        setAddress(sample.address);
+        setManualLat(sample.latitude);
+        setManualLng(sample.longitude);
+        setLocationMode("manual");
+        setSubmitError(null);
+        setOcrStatus("done");
+      }, 1200);
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function geocodeAddress() {
     if (address.trim().length < 3 || geoBusy) return;
@@ -421,6 +503,65 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
 
         <form className="case-form" onSubmit={handleSubmit}>
           <div className="form-grid">
+            <div className="ocr-upload">
+              <div className="ocr-upload-copy">
+                <span className="ocr-upload-title">
+                  <Camera size={16} />
+                  Autocompletar con una foto
+                </span>
+                <span className="ocr-upload-hint">
+                  Demostración de OCR: la imagen se procesa en el navegador y
+                  no se envía.
+                </span>
+              </div>
+              <div className="ocr-upload-actions">
+                {photoPreview && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className="ocr-preview"
+                    src={photoPreview}
+                    alt="Vista previa de la foto"
+                  />
+                )}
+                <button
+                  className="ocr-button"
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={ocrStatus === "processing"}
+                >
+                  {ocrStatus === "processing" ? (
+                    <Loader2 size={15} className="ocr-spin" />
+                  ) : (
+                    <Camera size={15} />
+                  )}
+                  {ocrStatus === "processing"
+                    ? "Procesando…"
+                    : photoName
+                      ? "Cambiar foto"
+                      : "Subir foto"}
+                </button>
+              </div>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhoto}
+                hidden
+              />
+              {ocrStatus === "done" && (
+                <span className="ocr-status is-done" role="status">
+                  <CheckCircle2 size={13} />
+                  Formulario autocompletado con OCR simulado
+                  {photoName ? ` desde ${photoName}` : ""}. Revisa los datos.
+                </span>
+              )}
+              {ocrStatus === "error" && (
+                <span className="ocr-status is-error" role="alert">
+                  Selecciona una imagen válida (JPG, PNG o WebP).
+                </span>
+              )}
+            </div>
+
             <label className="field field--full">
               <span>Título del evento</span>
               <input
@@ -429,12 +570,23 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
                 required
                 autoComplete="off"
                 autoFocus
+                value={caseTitle}
+                onChange={(event) => {
+                  setCaseTitle(event.target.value);
+                  setSubmitError(null);
+                }}
               />
             </label>
 
             <label className="field">
               <span>Tipo de evento</span>
-              <select name="category" defaultValue="incendio">
+              <select
+                name="category"
+                value={caseCategory}
+                onChange={(event) =>
+                  setCaseCategory(event.target.value as EmergencyCategory)
+                }
+              >
                 {CATEGORY_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {categoryLabel(option)}
@@ -445,7 +597,13 @@ function NewCaseModal({ onClose, onCreate }: NewCaseModalProps) {
 
             <label className="field">
               <span>Tipo de ayuda</span>
-              <select name="help_type" defaultValue="alimentos">
+              <select
+                name="help_type"
+                value={caseHelpType}
+                onChange={(event) =>
+                  setCaseHelpType(event.target.value as EmergencyHelpType)
+                }
+              >
                 {HELP_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {helpLabel(option)}
@@ -1403,8 +1561,10 @@ function StockModal({ items, busy, onClose, onCreateItem, onPurchase }: StockMod
 
 export default function HomePage() {
   const router = useRouter();
-  const [view, setView] = useState<"panel" | "casos">("panel");
-  const [selectedId, setSelectedId] = useState("centro");
+  const [view, setView] = useState<"panel" | "casos" | "indicadores">(
+    "panel",
+  );
+  const [selectedId, setSelectedId] = useState<string | null>("centro");
   const [user, setUser] = useState<User | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
@@ -1428,7 +1588,7 @@ export default function HomePage() {
   const [stockOpen, setStockOpen] = useState(false);
   const [stockBusy, setStockBusy] = useState(false);
 
-  const selected = getMacrosector(selectedId);
+  const selected = selectedId ? getMacrosector(selectedId) : null;
 
   function showToast(message: string) {
     setToast(message);
@@ -1467,7 +1627,9 @@ export default function HomePage() {
   // Allow deep links into the cases queue, e.g. /panel?vista=casos.
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("vista");
-    if (requested === "casos") setView(requested);
+    if (requested === "casos" || requested === "indicadores") {
+      setView(requested);
+    }
   }, []);
 
   useEffect(() => {
@@ -1524,9 +1686,9 @@ export default function HomePage() {
 
   const filteredCases = useMemo(() => {
     // The queue mirrors the selected macrosector; search narrows it further.
-    const sectorCases = emergencies.filter(
-      (item) => item.macrosector === selectedId,
-    );
+    const sectorCases = selectedId
+      ? emergencies.filter((item) => item.macrosector === selectedId)
+      : emergencies;
     const query = submittedSearch.trim().toLowerCase();
     if (!query) return sectorCases;
 
@@ -1551,7 +1713,10 @@ export default function HomePage() {
   const visibleCases = showAllCases ? filteredCases : filteredCases.slice(0, 3);
 
   const sectorEmergencies = useMemo(
-    () => emergencies.filter((item) => item.macrosector === selectedId),
+    () =>
+      selectedId
+        ? emergencies.filter((item) => item.macrosector === selectedId)
+        : emergencies,
     [emergencies, selectedId],
   );
 
@@ -1670,7 +1835,7 @@ export default function HomePage() {
     setNewCaseOpen(true);
   }
 
-  function applyView(next: "panel" | "casos") {
+  function applyView(next: "panel" | "casos" | "indicadores") {
     setView(next);
     const url = new URL(window.location.href);
     if (next === "panel") {
@@ -1690,6 +1855,10 @@ export default function HomePage() {
     if (label === "Casos") {
       applyView("casos");
       if (casesError) void loadEmergencies();
+      return;
+    }
+    if (label === "Indicadores") {
+      applyView("indicadores");
       return;
     }
     if (label === "Bodega") {
@@ -1877,6 +2046,7 @@ export default function HomePage() {
             {NAV_ITEMS.map((item) => {
               const active =
                 (view === "casos" && item === "Casos") ||
+                (view === "indicadores" && item === "Indicadores") ||
                 (view === "panel" && item === "Panel");
               return (
                 <button
@@ -1893,7 +2063,19 @@ export default function HomePage() {
           </nav>
 
           <div className="topbar-actions">
-            <button className="topbar-primary" type="button" onClick={openNewCase}>
+            <SectorPicker
+              value={selectedId}
+              onChange={setSelectedId}
+              className="sector-picker--topbar"
+            />
+
+            <button
+              className="topbar-primary"
+              type="button"
+              onClick={openNewCase}
+              aria-label="Nuevo caso"
+              title="Nuevo caso"
+            >
               <Plus size={14} />
               <span>Nuevo caso</span>
             </button>
@@ -2042,14 +2224,26 @@ export default function HomePage() {
         >
           {view === "casos" ? (
             <CasosView
-              emergencies={emergencies}
+              emergencies={
+                selectedId
+                  ? emergencies.filter(
+                      (item) => item.macrosector === selectedId,
+                    )
+                  : emergencies
+              }
               loading={loadingCases}
               error={casesError}
               forbidden={forbidden}
               role={user?.role}
+              scopeLabel={selected ? selected.label : "Ciudad"}
               onReload={() => void loadEmergencies()}
               onNewCase={openNewCase}
               onSelect={handleCaseSelect}
+            />
+          ) : view === "indicadores" ? (
+            <IndicadoresView
+              sectorId={selectedId}
+              onSectorChange={setSelectedId}
             />
           ) : (
             <>
@@ -2219,8 +2413,10 @@ export default function HomePage() {
               >
                 <div className="territory-summary" aria-live="polite">
                   <div className="territory-title-row">
-                    <h2>{selected.label}</h2>
-                    <span className="territory-type">{selected.type}</span>
+                    <h2>{selected ? selected.label : "Ciudad"}</h2>
+                    <span className="territory-type">
+                      {selected ? selected.type : "Todos los sectores"}
+                    </span>
                   </div>
                 </div>
 
@@ -2339,7 +2535,7 @@ export default function HomePage() {
                   ) : filteredCases.length === 0 ? (
                     <EmptyCases
                       query={submittedSearch}
-                      sector={selected.label}
+                      sector={selected ? selected.label : "Ciudad"}
                       onClear={clearSearch}
                     />
                   ) : (
